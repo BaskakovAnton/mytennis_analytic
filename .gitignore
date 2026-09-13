@@ -1,6 +1,10 @@
-# Database files (large)
+# Database files (large) — never commit dumps
 sqlite/mytennis.db
 sqlite/*.db
+mytennis.db/
+mytennis.db/**
+*.db.zip
+mytennis.db.zip
 
 # Python cache
 __pycache__/

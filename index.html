@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyTennis Analytic · РТТ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Public+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F1F3EE; --ink:#1B2321; --soft:#4B564F; --accent:#1F6F4A; --line:#D8DDD4; --surface:#FFFCFA;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+  font-family:"Public Sans",system-ui,sans-serif; color:var(--ink);
+  background:
+    radial-gradient(900px 420px at 10% -10%, #d8e8df 0%, transparent 55%),
+    radial-gradient(700px 380px at 100% 0%, #e4e0d4 0%, transparent 50%),
+    var(--bg);
+  padding:24px;
+}
+.card{
+  width:min(560px,100%); background:var(--surface); border:1px solid var(--line);
+  border-radius:18px; padding:2rem 1.75rem 1.75rem;
+  box-shadow:0 12px 40px rgba(27,35,33,.08);
+}
+.eyebrow{font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:.75rem}
+h1{font-family:"Source Serif 4",Georgia,serif; font-size:clamp(1.6rem,1.3rem + 1.5vw,2.1rem); margin:0 0 .75rem; line-height:1.2}
+p{margin:0 0 1.4rem; color:var(--soft); line-height:1.5}
+.links{display:flex; flex-direction:column; gap:10px}
+a.btn{
+  display:block; text-decoration:none; color:var(--ink); border:1px solid var(--line);
+  border-radius:12px; padding:14px 16px; background:#fff; transition:transform .12s, box-shadow .12s;
+}
+a.btn:hover{transform:translateY(-1px); box-shadow:0 8px 24px rgba(27,35,33,.1)}
+a.btn.primary{background:var(--accent); color:#fff; border-color:#16553A}
+a.btn strong{display:block; font-size:1rem; margin-bottom:2px}
+a.btn span{font-size:.85rem; opacity:.85}
+.foot{margin-top:1.25rem; font-size:.78rem; color:#7C877F; line-height:1.4}
+code{font-family:ui-monospace,Consolas,monospace; font-size:.85em}
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="eyebrow">MyTennis · РТТ · для техдира</div>
+    <h1>Аналитика данных Российского теннисного тура</h1>
+    <p>Интерактивный процесс пайплайна и брифинг по аномалиям выгрузки. Источник: <code>mytennis.online</code> / API <code>apirtt.mytennis.online</code>.</p>
+    <div class="links">
+      <a class="btn primary" href="process.html">
+        <strong>Интерактивный процесс</strong>
+        <span>Дорожки · плеер сценариев · статистика · находки</span>
+      </a>
+      <a class="btn" href="analysis/rtt-data-anomalies.html">
+        <strong>Брифинг «Слепые зоны»</strong>
+        <span>Критичные аномалии рейтинга и полей для встречи</span>
+      </a>
+      <a class="btn" href="https://github.com/goshva/mytennis_analytic">
+        <strong>Исходники на GitHub</strong>
+        <span>goshva/mytennis_analytic · upstream</span>
+      </a>
+    </div>
+    <div class="foot">Pages-зеркало для просмотра без клона репозитория. Паттерн как у Vitauto <code>process.html</code>.</div>
+  </main>
+</body>
+</html>

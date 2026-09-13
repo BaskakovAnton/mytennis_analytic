@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyTennis Analytic · интерактивный процесс и статистика</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F1F3EE; --surface:#FFFFFF; --surface-2:#E7EAE2;
+  --ink:#1B2321; --ink-soft:#4B564F; --ink-faint:#7C877F;
+  --accent:#1F6F4A; --accent-dark:#16553A; --accent-soft:#E3EEE6;
+  --line:#D8DDD4; --shadow:0 1px 2px rgba(27,35,33,.06),0 8px 24px -10px rgba(27,35,33,.14);
+  --ok-bg:#E3EEE6; --ok-bd:#8FBF9F; --ok-ink:#166534;
+  --part-bg:#F3E7D2; --part-bd:#D4B06A; --part-ink:#854D0E;
+  --no-bg:#F5E2DF; --no-bd:#E0A29A; --no-ink:#991B1B;
+  --src:#DCE8E2; --src-bd:#6A9A82;
+  --col:#E4E9F2; --col-bd:#6B86B0;
+  --store:#E8E4D8; --store-bd:#A09060;
+  --an:#EDE6F0; --an-bd:#9A7AAD;
+  --art:#E8F0D8; --art-bd:#7A9A4A;
+  --stk:#F0E6DC; --stk-bd:#B07A4A;
+  --dim:.22;
+  --mono:"IBM Plex Mono",Consolas,monospace;
+  --sans:"Public Sans",system-ui,sans-serif;
+  --serif:"Source Serif 4",Georgia,serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:
+    radial-gradient(900px 420px at 8% -8%, #d8e8df 0%, transparent 55%),
+    radial-gradient(700px 380px at 100% 0%, #e4e0d4 0%, transparent 50%),
+    var(--bg);
+  color:var(--ink); font-family:var(--sans); font-size:13.5px; line-height:1.5;
+}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+code,.mono{font-family:var(--mono); font-variant-numeric:tabular-nums}
+
+header.app{
+  position:sticky; top:0; z-index:50;
+  background:rgba(255,252,247,.92); backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line); padding:12px 18px 10px;
+}
+header.app h1{
+  font-family:var(--serif); font-size:clamp(1.15rem,1rem + 1vw,1.45rem);
+  margin:0 0 4px; font-weight:700;
+}
+.sub{color:var(--ink-soft); font-size:12px; margin-bottom:10px; max-width:92ch; line-height:1.45}
+.toolbar{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.grow{flex:1 1 auto}
+.seg{display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--surface)}
+.seg button{border:0; border-radius:0; background:transparent}
+.seg button.active{background:var(--accent); color:#fff}
+button,.btn{
+  cursor:pointer; border:1px solid var(--line); background:var(--surface);
+  border-radius:8px; padding:7px 11px; font-size:12px; color:var(--ink); font-family:inherit;
+}
+button:hover{background:var(--surface-2)}
+button.primary{background:var(--accent); border-color:var(--accent-dark); color:#fff}
+button.primary:hover{background:var(--accent-dark)}
+button.toggle.active{background:var(--accent); color:#fff; border-color:var(--accent-dark)}
+select{padding:7px 8px; border:1px solid var(--line); border-radius:8px; font-size:12px; background:#fff; font-family:inherit}
+.badge{
+  display:inline-block; background:var(--surface-2); border-radius:6px;
+  padding:3px 8px; font-size:11px; color:var(--ink-soft);
+}
+.legend{
+  display:flex; gap:14px; flex-wrap:wrap; align-items:center;
+  color:var(--ink-soft); font-size:11px; padding:8px 18px 0;
+}
+.sw{display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:4px; vertical-align:-1px; border:1px solid rgba(0,0,0,.12)}
+.sw.ok{background:var(--ok-bg); border-color:var(--ok-bd)}
+.sw.part{background:var(--part-bg); border-color:var(--part-bd)}
+.sw.no{background:var(--no-bg); border-color:var(--no-bd)}
+
+.layout{display:grid; grid-template-columns:minmax(0,1fr) 340px; min-height:calc(100vh - 150px)}
+@media (max-width:1100px){.layout{grid-template-columns:1fr}}
+.main{padding:12px 18px 48px; overflow:auto; min-width:0}
+.side{
+  border-left:1px solid var(--line); background:rgba(255,252,247,.95);
+  padding:14px 16px 32px; position:sticky; top:118px; align-self:start;
+  max-height:calc(100vh - 118px); overflow:auto;
+}
+@media (max-width:1100px){.side{position:static; max-height:none; border-left:0; border-top:1px solid var(--line)}}
+
+.player{
+  display:flex; flex-direction:column; gap:10px;
+  background:linear-gradient(160deg, var(--accent-soft), #f7f5ef);
+  border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:12px;
+  box-shadow:var(--shadow);
+}
+.scenario-head{display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap}
+.scenario-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:6px}
+.scenario-grid button{text-align:left; padding:8px 10px; font-size:11.5px; line-height:1.35; border-radius:8px}
+.scenario-grid button.active{background:var(--accent); border-color:var(--accent-dark); color:#fff}
+.scenario-grid button .sid{display:block; font-size:10px; opacity:.7; font-family:var(--mono); margin-bottom:2px}
+.player-top{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.step-meta{flex:1 1 220px; min-width:180px}
+.step-title{font-weight:700; font-size:13px}
+.step-note{color:var(--ink-soft); font-size:11.5px; margin-top:2px; line-height:1.4}
+.progress{height:6px; background:rgba(27,35,33,.08); border-radius:99px; overflow:hidden; margin-top:8px}
+.progress>i{display:block; height:100%; background:var(--accent); width:0%; transition:width .25s ease}
+
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:8px; margin-bottom:12px}
+.stat{
+  background:var(--surface); border:1px solid var(--line); border-radius:10px;
+  padding:10px 12px; box-shadow:var(--shadow); cursor:default;
+}
+.stat b{display:block; font-family:var(--mono); font-size:1.15rem; font-weight:600; color:var(--accent)}
+.stat span{color:var(--ink-faint); font-size:10.5px; text-transform:uppercase; letter-spacing:.04em}
+
+.view-panel[hidden]{display:none!important}
+.edges-hint{color:var(--ink-soft); font-size:11.5px; margin:2px 0 12px; line-height:1.45}
+
+.lanes{display:flex; flex-direction:column; gap:10px}
+.lane{
+  display:grid; grid-template-columns:128px minmax(0,1fr);
+  border:1px solid var(--line); border-radius:12px; overflow:hidden;
+  background:var(--surface); transition:opacity .2s, filter .2s;
+}
+.lane.dim{opacity:var(--dim); filter:grayscale(.35)}
+.lane-label{
+  display:flex; align-items:center; justify-content:center; text-align:center;
+  font-weight:700; font-size:11.5px; padding:10px 8px; border-right:1px solid var(--line); line-height:1.3;
+}
+.lane-nodes{display:flex; flex-wrap:wrap; gap:8px; padding:10px; align-items:stretch; min-height:86px}
+.lane.source .lane-label{background:var(--src); color:#1e4a35}
+.lane.collect .lane-label{background:var(--col); color:#243a5c}
+.lane.store .lane-label{background:var(--store); color:#5a4a20}
+.lane.analyze .lane-label{background:var(--an); color:#4a2f5c}
+.lane.artifact .lane-label{background:var(--art); color:#3a4a18}
+.lane.stake .lane-label{background:var(--stk); color:#5a3a20}
+
+.node{
+  width:168px; min-height:78px; border:1.5px solid var(--line); border-radius:10px;
+  padding:8px 9px; background:#fff; cursor:pointer;
+  display:flex; flex-direction:column; gap:4px;
+  transition:transform .12s, box-shadow .12s, outline .12s, opacity .2s;
+}
+.node:hover{transform:translateY(-1px); box-shadow:var(--shadow)}
+.node.selected{outline:2px solid var(--accent); outline-offset:1px; box-shadow:0 0 0 4px rgba(31,111,74,.16)}
+.node.play-active{outline:2px solid #2F6B9A; outline-offset:1px; box-shadow:0 0 0 4px rgba(47,107,154,.18)}
+.node.dim{opacity:var(--dim); pointer-events:none}
+.node.decision{border-radius:18px; border-style:dashed}
+.node .nid{font-size:10px; font-family:var(--mono); color:var(--ink-faint)}
+.node .ntitle{font-size:11.5px; font-weight:600; line-height:1.35; flex:1}
+.node .nmeta{display:flex; gap:4px; flex-wrap:wrap; margin-top:2px}
+.pill{font-size:10px; border-radius:4px; padding:1px 5px; border:1px solid transparent; white-space:nowrap}
+.pill.ok{background:var(--ok-bg); border-color:var(--ok-bd); color:var(--ok-ink)}
+.pill.part{background:var(--part-bg); border-color:var(--part-bd); color:var(--part-ink)}
+.pill.no{background:var(--no-bg); border-color:var(--no-bd); color:var(--no-ink)}
+.node.cov-ok{border-color:var(--ok-bd); background:linear-gradient(#fff,#f3fbf5)}
+.node.cov-part{border-color:var(--part-bd); background:linear-gradient(#fff,#fffbeb)}
+.node.cov-no{border-color:var(--no-bd); background:linear-gradient(#fff,#fff5f5)}
+.body.coverage-off .node.cov-ok,
+.body.coverage-off .node.cov-part,
+.body.coverage-off .node.cov-no{border-color:var(--line); background:#fff}
+.body.coverage-off .pill.cov{display:none}
+
+.side h2{margin:0 0 6px; font-family:var(--serif); font-size:1.05rem}
+.side .empty{color:var(--ink-soft); font-size:12.5px; line-height:1.45; padding:8px 0}
+.kv{display:grid; grid-template-columns:88px 1fr; gap:6px 8px; font-size:12px; margin:10px 0}
+.kv .k{color:var(--ink-faint)}
+.kv .v{line-height:1.4}
+.chips{display:flex; flex-wrap:wrap; gap:5px; margin:6px 0 10px}
+.chip{background:var(--surface-2); border-radius:999px; padding:3px 8px; font-size:11px; color:var(--ink-soft)}
+.block{margin-top:12px; padding-top:10px; border-top:1px solid var(--line)}
+.block h3{margin:0 0 6px; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-faint); font-weight:700}
+.block p,.block li{font-size:12.5px; line-height:1.45; margin:0 0 6px}
+.block ul{margin:0; padding-left:16px}
+.conflict{background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:8px 10px; font-size:12px; line-height:1.4; color:#9a3412}
+.nexts{display:flex; flex-direction:column; gap:6px}
+.nexts button{text-align:left}
+
+/* ===== stats view ===== */
+.stats-layout{display:flex; flex-direction:column; gap:14px}
+.chart-card{
+  background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  padding:14px 16px; box-shadow:var(--shadow); min-width:0;
+}
+.chart-card h3{margin:0 0 4px; font-family:var(--serif); font-size:1.05rem}
+.chart-card .hint{color:var(--ink-soft); font-size:12px; margin-bottom:10px}
+.chart-wrap{width:100%; overflow:hidden}
+.chart-wrap svg{display:block; width:100%; height:auto}
+.filters{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px}
+.filters button{font-size:11.5px}
+.filters button.active{background:var(--accent); color:#fff; border-color:var(--accent-dark)}
+.findings{display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px}
+.finding{
+  border:1px solid var(--line); border-radius:12px; padding:12px; background:#fff;
+  cursor:pointer; transition:transform .12s, box-shadow .12s, outline .12s;
+}
+.finding:hover{transform:translateY(-1px); box-shadow:var(--shadow)}
+.finding.selected{outline:2px solid var(--accent); outline-offset:1px}
+.finding .sev{font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; margin-bottom:4px}
+.finding .sev.critical{color:var(--no-ink)}
+.finding .sev.high{color:var(--part-ink)}
+.finding .sev.medium{color:#1e4a7a}
+.finding .sev.low{color:var(--ink-faint)}
+.finding h4{margin:0 0 4px; font-size:13px; font-family:var(--serif)}
+.finding p{margin:0; font-size:12px; color:var(--ink-soft); line-height:1.4}
+.bar-row{display:grid; grid-template-columns:110px 1fr 64px; gap:8px; align-items:center; margin:5px 0; font-size:12px}
+.bar-track{height:10px; background:var(--surface-2); border-radius:99px; overflow:hidden}
+.bar-fill{height:100%; background:var(--accent); border-radius:99px; transition:width .35s ease}
+.bar-row .n{font-family:var(--mono); font-size:11px; text-align:right; color:var(--ink-soft)}
+.spark{display:flex; align-items:flex-end; gap:3px; height:72px; padding-top:8px}
+.spark i{
+  flex:1; background:var(--accent); border-radius:3px 3px 0 0; min-width:0;
+  opacity:.85; transition:opacity .15s, transform .15s; cursor:pointer;
+}
+.spark i:hover,.spark i.active{opacity:1; transform:scaleY(1.04); background:var(--accent-dark)}
+.spark i.cliff{background:#B23A2E}
+.kpi-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px}
+.kpi{
+  border:1px solid var(--line); border-radius:12px; padding:12px; background:#fff; cursor:pointer;
+}
+.kpi.active{outline:2px solid var(--accent)}
+.kpi .v{font-family:var(--mono); font-size:1.35rem; font-weight:600; color:var(--accent)}
+.kpi .l{font-size:11px; color:var(--ink-soft); margin-top:2px}
+.kpi .d{font-size:11px; color:var(--ink-faint); margin-top:6px; line-height:1.35}
+
+footer.app{padding:10px 18px 28px; color:var(--ink-faint); font-size:11.5px; line-height:1.45}
+</style>
+</head>
+<body class="body">
+
+<header class="app">
+  <h1>MyTennis Analytic — процесс данных РТТ</h1>
+  <div class="sub">
+    Интерактивная карта пайплайна по образцу Vitauto <code>process.html</code>:
+    дорожки слоёв + плеер сценариев + покрытие артефактов.
+    Источник: <a href="https://mytennis.online/public/tours/calendar" target="_blank" rel="noopener">mytennis.online</a>
+    · API <a href="https://apirtt.mytennis.online" target="_blank" rel="noopener">apirtt.mytennis.online</a>
+    · репо <a href="https://github.com/goshva/mytennis_analytic" target="_blank" rel="noopener">goshva/mytennis_analytic</a>.
+  </div>
+  <div class="toolbar">
+    <div class="seg" id="viewSeg">
+      <button data-view="process" class="active">Процесс</button>
+      <button data-view="stats">Статистика</button>
+      <button data-view="findings">Находки</button>
+    </div>
+    <label class="badge">Сценарий
+      <select id="scenarioSelect" style="margin-left:6px;min-width:200px"></select>
+    </label>
+    <button id="btnPrev" title="Шаг назад">◀</button>
+    <button id="btnPlay" class="primary">▶ Плей</button>
+    <button id="btnNext" title="Шаг вперёд">▶</button>
+    <button id="btnStop">Сброс</button>
+    <div class="grow"></div>
+    <button id="btnCoverage" class="toggle active">Покрытие</button>
+    <button id="btnGapsOnly" class="toggle">Только разрывы</button>
+    <select id="laneFilter"><option value="">Все слои</option></select>
+    <a class="btn" href="analysis/rtt-data-anomalies.html">Брифинг аномалий →</a>
+  </div>
+</header>
+
+<div class="legend">
+  <span><span class="sw ok"></span>есть в репо</span>
+  <span><span class="sw part"></span>частично / вручную</span>
+  <span><span class="sw no"></span>нет / разрыв</span>
+  <span class="badge">клик по узлу — детали API / скрипт / данные</span>
+  <span class="badge" id="statusLine"></span>
+</div>
+
+<div class="layout">
+  <div class="main">
+    <div class="player" id="playerBar">
+      <div class="scenario-head">
+        <strong>Сценарии — <span id="scenarioCount">0</span></strong>
+        <span class="badge">карточка или select + плей</span>
+      </div>
+      <div class="scenario-grid" id="scenarioGrid"></div>
+      <div class="player-top">
+        <div class="step-meta">
+          <div class="step-title" id="playerTitle">Выберите сценарий и нажмите «Плей» или кликните узел</div>
+          <div class="step-note" id="playerNote">Плеер ведёт по конвейеру: сайт → API → SQLite → анализ → артефакт для разговора.</div>
+          <div class="progress"><i id="playerProgress"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats" id="statsRow"></div>
+
+    <div class="view-panel" id="processView">
+      <div class="edges-hint">Дорожки = слои пайплайна. Переходы — в панели справа. Пунктир = обратная связь / ручной шаг.</div>
+      <div class="lanes" id="lanes"></div>
+    </div>
+
+    <div class="view-panel" id="statsView" hidden>
+      <div class="stats-layout">
+        <div class="chart-card">
+          <h3>KPI выгрузки</h3>
+          <div class="hint">Клик по карточке — фильтр находок и подсветка связанных узлов процесса.</div>
+          <div class="kpi-grid" id="kpiGrid"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Обвал рейтинга · март→апрель 2021</h3>
+          <div class="hint">Число игроков в срезах <span class="mono">rating_roster</span>. Красный столбец — апрель 2021.</div>
+          <div class="spark" id="cliffSpark" aria-label="Динамика рейтинга 2021"></div>
+          <div class="hint mono" id="cliffCaption" style="margin-top:8px"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Распределение tour_members</h3>
+          <div class="hint">Поле почти не меняется — похоже на константу/заглушку, не на число участников.</div>
+          <div id="membersBars"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Справочники и гео</h3>
+          <div class="hint">handbook_items и locations из collect.py</div>
+          <div id="handbookBars"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view-panel" id="findingsView" hidden>
+      <div class="filters" id="sevFilter">
+        <button data-sev="" class="active">Все</button>
+        <button data-sev="critical">Критично</button>
+        <button data-sev="high">Высокий</button>
+        <button data-sev="medium">Средний</button>
+        <button data-sev="low">Низкий</button>
+      </div>
+      <div class="findings" id="findingsGrid"></div>
+    </div>
+  </div>
+
+  <aside class="side" id="sidePanel">
+    <div class="empty" id="sideEmpty">Кликните узел или запустите плеер — здесь появятся API-метод, скрипт, таблица SQLite и статус покрытия.</div>
+    <div id="sideContent" hidden></div>
+  </aside>
+</div>
+
+<footer class="app">
+  Канон: <code>openapi.yaml</code> · <code>scripts/collect.py</code> · <code>scripts/analyze.py</code> · <code>sqlite/mytennis.db</code> (локально сейчас <code>mytennis.db/mytennis.db</code>) ·
+  <code>analysis/rtt-data-anomalies.html</code>. Статистика на срезе выгрузки 12.09.2026. Паттерн UX — Vitauto process.html.
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  var COV = { ok: 'есть', part: 'частично', no: 'нет' };
+
+  var LANES = [
+    { id: 'source', title: 'Источник\nсайт / API' },
+    { id: 'collect', title: 'Сбор\ncollect.py' },
+    { id: 'store', title: 'Хранилище\nSQLite' },
+    { id: 'analyze', title: 'Анализ\nanalyze / SQL' },
+    { id: 'artifact', title: 'Артефакты\nотчёты' },
+    { id: 'stake', title: 'Стейкхолдеры\nрешение' }
+  ];
+
+  var NODES = [
+    { id: 'S1', lane: 'source', title: 'Календарь / ЛК', full: 'Публичный UI mytennis.online: календарь турниров, рейтинг, личный кабинет (SPA).', shape: 'rect', cov: 'ok', tags: ['UI'], detail: 'Витрина ЕАИС «Российский теннис» / РТТ. Данные для аналитики берутся не скрейпом HTML, а через API.', links: [{ href: 'https://mytennis.online/public/tours/calendar', label: 'Календарь' }, { href: 'https://rtt.mytennis.online/public/ranking/solo', label: 'Рейтинг' }], next: [{ to: 'S2', label: 'те же данные' }] },
+    { id: 'S2', lane: 'source', title: 'API host', full: 'apirtt.mytennis.online — отдельный хост публичного RPC.', shape: 'rect', cov: 'ok', tags: ['API'], detail: 'Нет официального Swagger: /docs и /swagger уводят на login. Схема восстановлена вручную.', links: [{ href: 'https://apirtt.mytennis.online', label: 'API host' }], next: [{ to: 'S3', label: 'POST /api/v1/public' }] },
+    { id: 'S3', lane: 'source', title: 'RPC multipart', full: 'Единая точка: POST /api/v1/public, method[0]=…, multipart/form-data.', shape: 'rect', cov: 'ok', tags: ['RPC'], detail: '5 известных методов: tour.roster, location.search.term, handbook.items, rating.list, rating.roster. Скаляры часто строки (PHP).', next: [{ to: 'C1', label: 'вызов из collect' }] },
+
+    { id: 'C1', lane: 'collect', title: 'Rate limit 1/с', full: 'Глобальный троттлинг ≤ 1 HTTP-вызов в секунду + ретраи.', shape: 'rect', cov: 'ok', tags: ['collect.py'], detail: 'RATE_LIMIT_SECONDS=1.0, до 5 ретраев с линейным backoff. Безопасно для долгого синка рейтингов.', next: [{ to: 'C2', label: 'handbook' }, { to: 'C3', label: 'locations' }, { to: 'C4', label: 'tours' }, { to: 'C5', label: 'ratings' }] },
+    { id: 'C2', lane: 'collect', title: 'handbook.items', full: 'Справочники фильтров турниров одним батчем.', shape: 'rect', cov: 'ok', tags: ['RPC'], detail: '8 ключей: tour_status, tour_rank, tour_format_calendar, tour_category, tour_system, tour_access, cover_type, timezone → 232 строки.', next: [{ to: 'D1', label: 'handbook_items' }] },
+    { id: 'C3', lane: 'collect', title: 'location.search', full: 'Гео: федеральные округа (type=1) и регионы (type=2).', shape: 'rect', cov: 'part', tags: ['RPC'], detail: 'Сейчас 8+90=98 локаций. Cities/координаты в выгрузке фактически мёртвые для турниров — см. находки.', next: [{ to: 'D2', label: 'locations' }] },
+    { id: 'C4', lane: 'collect', title: 'tour.roster', full: 'Пагинация турниров, skip если count совпал.', shape: 'rect', cov: 'ok', tags: ['RPC'], detail: 'per_page до 1000, sort begin_date ASC. Upsert по tour_id. 68 518 турниров (2005→2026).', next: [{ to: 'D3', label: 'tournaments' }] },
+    { id: 'C5', lane: 'collect', title: 'rating.list/roster', full: 'Срезы рейтинга + постраничные ростеры игроков.', shape: 'rect', cov: 'ok', tags: ['RPC'], detail: '366 периодов (rank 1/2), ~2.18M строк roster, ~36.8k уникальных player_id. Самый долгий этап синка.', next: [{ to: 'D4', label: 'rating_*' }] },
+    { id: 'C6', lane: 'collect', title: 'Идемпотентность', full: 'Повторный запуск догружает только изменившееся.', shape: 'rect', cov: 'ok', tags: ['collect.py'], detail: 'Сравнение navigator.count с локальным COUNT(*). --only позволяет узкий ресинк.', next: [{ to: 'D5', label: 'готовая БД' }] },
+
+    { id: 'D1', lane: 'store', title: 'handbook_items', full: 'Справочники: 232 строки, PK (handbook_key, item_id).', shape: 'rect', cov: 'ok', tags: ['SQLite'], detail: 'Используются analyze.py для подписей статусов/категорий на графиках.', next: [{ to: 'A1', label: 'маппинг лейблов' }] },
+    { id: 'D2', lane: 'store', title: 'locations', full: '98 локаций type 1/2.', shape: 'rect', cov: 'part', tags: ['SQLite'], detail: 'Широта/долгота и city-level в данных турниров часто пустые — геоаналитика ограничена.', next: [{ to: 'A2', label: 'гео-графики' }] },
+    { id: 'D3', lane: 'store', title: 'tournaments', full: '68 518 турниров, широкий денормализованный TourRecord.', shape: 'rect', cov: 'ok', tags: ['SQLite'], detail: 'Индекс по begin_date. Много полей-сентинелов (cant_*=666) и сомнительный tour_members.', next: [{ to: 'A1', label: 'объём/статусы/fee' }] },
+    { id: 'D4', lane: 'store', title: 'rating_periods + roster', full: '366 срезов + 2 184 835 строк рейтинга.', shape: 'rect', cov: 'ok', tags: ['SQLite'], detail: 'Индекс по rating_id. Здесь сидит обвал апреля 2021.', next: [{ to: 'A3', label: 'динамика / cliff' }] },
+    { id: 'D5', lane: 'store', title: 'Путь к БД', full: 'Канон в коде: sqlite/mytennis.db', shape: 'decision', cov: 'part', tags: ['path'], detail: 'Сейчас на машине лежит mytennis.db/mytennis.db (~531 MB). Скрипты без правки пути не увидят файл. В .gitignore — sqlite/*.db.', conflict: 'Рассинхрон пути: код ждёт sqlite/, факт — папка mytennis.db/.', next: [{ to: 'A4', label: 'analyze', dashed: true }] },
+
+    { id: 'A1', lane: 'analyze', title: 'Турнирные PNG', full: 'analyze.py: объём по годам, города, статусы, fee, категории.', shape: 'rect', cov: 'ok', tags: ['analyze.py'], detail: 'Пишет в analysis/*.png. Статус «0» трактуется как not set.', next: [{ to: 'R1', label: 'charts' }] },
+    { id: 'A2', lane: 'analyze', title: 'Локации PNG', full: 'Распределение locations по type.', shape: 'rect', cov: 'ok', tags: ['analyze.py'], detail: 'Тонкий слой — данных мало (98 строк).', next: [{ to: 'R1', label: 'charts' }] },
+    { id: 'A3', lane: 'analyze', title: 'Рейтинг PNG + cliff', full: 'Игроки во времени, age, points, top-20, zoom на 2021.', shape: 'rect', cov: 'ok', tags: ['analyze.py'], detail: 'ratings_2021_cliff.png — визуальный якорь для брифинга собственнику.', next: [{ to: 'R2', label: 'брифинг' }] },
+    { id: 'A4', lane: 'analyze', title: 'SQL / scratch', full: 'Точечные проверки аномалий → scratch_anomalies.txt', shape: 'rect', cov: 'part', tags: ['SQL'], detail: 'Часть запросов упала на MemoryError (pandas groupby duplicates) — дубли добили SQL-ом.', next: [{ to: 'R2', label: 'находки' }, { to: 'R3', label: 'этот process', dashed: true }] },
+
+    { id: 'R1', lane: 'artifact', title: 'analysis/*.png', full: 'Набор графиков matplotlib.', shape: 'rect', cov: 'ok', tags: ['PNG'], detail: 'Артефакты репозитория для воспроизводимого обзора доменов.', next: [{ to: 'R2', label: 'сводка' }] },
+    { id: 'R2', lane: 'artifact', title: 'rtt-data-anomalies', full: 'HTML-брифинг «слепые зоны» для ТД ↔ собственник.', shape: 'rect', cov: 'ok', tags: ['HTML'], detail: '8 находок с приоритетами, гипотеза COVID-окна, повестка встречи.', links: [{ href: 'analysis/rtt-data-anomalies.html', label: 'Открыть брифинг' }], next: [{ to: 'K1', label: 'разговор' }] },
+    { id: 'R3', lane: 'artifact', title: 'process.html', full: 'Эта страница: процесс + интерактивная статистика.', shape: 'rect', cov: 'ok', tags: ['HTML'], detail: 'Паттерн Vitauto process: дорожки, плеер, покрытие, боковая панель.', next: [{ to: 'K2', label: 'онбординг' }] },
+    { id: 'R4', lane: 'artifact', title: 'openapi.yaml', full: 'Reverse-engineered контракт публичного API.', shape: 'rect', cov: 'ok', tags: ['OpenAPI'], detail: 'Единственный «контракт» для collect.py и будущих клиентов.', next: [{ to: 'C1', label: 'реализация', dashed: true }] },
+
+    { id: 'K1', lane: 'stake', title: 'ТД ↔ собственник', full: 'Разбор критичных аномалий до презентаций роста.', shape: 'rect', cov: 'part', tags: ['people'], detail: 'Апрель 2021 и заглушки полей — риск для любых слайдов «рост базы».', next: [{ to: 'K3', label: 'решения' }] },
+    { id: 'K2', lane: 'stake', title: 'Аналитик / агент', full: 'Онбординг в репо без внедрений → затем задачи.', shape: 'rect', cov: 'ok', tags: ['people'], detail: 'Текущий режим: изучить вводные, БД, календарь; ждать следующего шага.', next: [{ to: 'K3', label: 'бэклог' }] },
+    { id: 'K3', lane: 'stake', title: 'Решения по данным', full: 'Правило vs сбой, фильтр «Р Т Т», обязательные поля, гео.', shape: 'rect', cov: 'no', tags: ['decision'], detail: 'Пока зафиксированы вопросы в брифинге — продуктовых решений в репо нет.', next: [] }
+  ];
+
+  var SCENARIOS = [
+    {
+      id: 'full',
+      title: 'Полный синк → брифинг',
+      steps: [
+        { node: 'S1', note: 'Пользователь видит календарь/рейтинг на сайте.' },
+        { node: 'S2', note: 'Данные отдаёт отдельный API-хост.' },
+        { node: 'S3', note: 'RPC multipart без официальной доки.' },
+        { node: 'C1', note: 'collect.py соблюдает 1 req/s.' },
+        { node: 'C2', note: 'Тянем справочники.' },
+        { node: 'C3', note: 'Тянем локации.' },
+        { node: 'C4', note: 'Тянем турниры (пагинация).' },
+        { node: 'C5', note: 'Тянем рейтинги (самый тяжёлый этап).' },
+        { node: 'C6', note: 'Повторный запуск идемпотентен.' },
+        { node: 'D5', note: 'БД на диске (проверить путь!).' },
+        { node: 'A1', note: 'Графики турниров.' },
+        { node: 'A3', note: 'Графики рейтинга + cliff.' },
+        { node: 'A4', note: 'SQL-проверки аномалий.' },
+        { node: 'R2', note: 'HTML-брифинг для встречи.' },
+        { node: 'K1', note: 'Разговор ТД и собственника.' }
+      ]
+    },
+    {
+      id: 'cliff',
+      title: 'Расследование обвала 2021',
+      steps: [
+        { node: 'C5', note: 'Нужны полные rating.roster.' },
+        { node: 'D4', note: 'Срезы в SQLite.' },
+        { node: 'A3', note: 'Считаем игроков по месяцам.' },
+        { node: 'R1', note: 'PNG cliff.' },
+        { node: 'R2', note: 'Гипотеза COVID-окна в брифинге.' },
+        { node: 'K1', note: 'Нужен ответ: правило или сбой?' }
+      ]
+    },
+    {
+      id: 'tours_only',
+      title: 'Узкий ресинк турниров',
+      steps: [
+        { node: 'S3', note: 'Только tour.roster.' },
+        { node: 'C1', note: 'Троттлинг.' },
+        { node: 'C4', note: 'python collect.py --only tournaments' },
+        { node: 'C6', note: 'Skip, если count совпал.' },
+        { node: 'D3', note: 'Обновлённые tournaments.' },
+        { node: 'A1', note: 'Пересчёт турнирных PNG.' }
+      ]
+    },
+    {
+      id: 'api_contract',
+      title: 'Контракт API',
+      steps: [
+        { node: 'S2', note: 'Хост без Swagger.' },
+        { node: 'S3', note: 'Снимаем live-ответы.' },
+        { node: 'R4', note: 'Фиксируем openapi.yaml.' },
+        { node: 'C1', note: 'collect опирается на схему.' },
+        { node: 'K2', note: 'Онбординг новых людей в контракт.' }
+      ]
+    },
+    {
+      id: 'onboard',
+      title: 'Онбординг аналитика',
+      steps: [
+        { node: 'S1', note: 'Открыть календарь руками.' },
+        { node: 'R4', note: 'Прочитать openapi.yaml.' },
+        { node: 'C1', note: 'Понять collect.py.' },
+        { node: 'D5', note: 'Положить/найти БД.' },
+        { node: 'R2', note: 'Прочитать брифинг аномалий.' },
+        { node: 'R3', note: 'Пройти этот process.html.' },
+        { node: 'K2', note: 'Ждать задачу на внедрение.' }
+      ]
+    },
+    {
+      id: 'data_quality',
+      title: 'Качество полей',
+      steps: [
+        { node: 'D3', note: 'Смотрим tournaments.' },
+        { node: 'A4', note: 'tour_members / cant_* / location.' },
+        { node: 'R2', note: 'Приоритизация находок.' },
+        { node: 'K3', note: 'Решения: фильтры, обязательные поля.' }
+      ]
+    }
+  ];
+
+  var STATS = {
+    tournaments: 68518,
+    ratingRows: 2184835,
+    periods: 366,
+    players: 36795,
+    locations: 98,
+    handbooks: 232,
+    blankLoc: 5445,
+    futureTours: 604,
+    endBeforeBegin: 33,
+    membersDist: [
+      { k: '443', n: 33220 },
+      { k: '439', n: 17013 },
+      { k: '441', n: 12342 },
+      { k: '437', n: 2551 },
+      { k: '0', n: 1792 },
+      { k: '435', n: 1576 },
+      { k: '1741', n: 19 },
+      { k: '433', n: 5 }
+    ],
+    handbookDist: [
+      { k: 'tour_category', n: 149 },
+      { k: 'cover_type', n: 40 },
+      { k: 'timezone', n: 16 },
+      { k: 'tour_status', n: 11 },
+      { k: 'tour_rank', n: 5 },
+      { k: 'tour_system', n: 5 },
+      { k: 'tour_access', n: 3 },
+      { k: 'tour_format_calendar', n: 3 }
+    ],
+    cliff: [
+      { d: '2021-01', m: 8980, w: 4555 },
+      { d: '2021-02', m: 8551, w: 4258 },
+      { d: '2021-03', m: 8768, w: 4319 },
+      { d: '2021-04', m: 5865, w: 2478, cliff: true },
+      { d: '2021-05', m: 6236, w: 2706 },
+      { d: '2021-06', m: 6602, w: 3067 }
+    ]
+  };
+
+  var FINDINGS = [
+    { id: 'f1', sev: 'critical', title: 'Обвал рейтинга апрель 2021', text: 'Муж. −33,1% (8768→5865), жен. −42,6% (4319→2478). Крупнейший скачок за 2011–2026.', nodes: ['A3', 'D4', 'R2', 'K1'], kpi: 'cliff' },
+    { id: 'f2', sev: 'critical', title: 'Нет срезов март–ноя 2020', text: 'Дыра в rating.list совпадает с COVID-паузой — гипотеза массового выбытия после окна.', nodes: ['D4', 'R2', 'K1'], kpi: 'cliff' },
+    { id: 'f3', sev: 'high', title: 'tour_members — заглушка', text: '8 значений на 68k турниров; мода 443. Нельзя трактовать как участников.', nodes: ['D3', 'A4', 'K3'], kpi: 'tours' },
+    { id: 'f4', sev: 'high', title: 'Пустые локации 7,9%', text: '5445 турниров с location_id=0 / пустым городом.', nodes: ['C3', 'D2', 'D3', 'K3'], kpi: 'geo' },
+    { id: 'f5', sev: 'high', title: 'Записи «Р Т Т»', text: 'Дубликаты-плейсхолдеры в рейтинге; нужна политика фильтрации на выдаче.', nodes: ['D4', 'R2', 'K3'], kpi: 'players' },
+    { id: 'f6', sev: 'medium', title: 'Сентинелы cant_*=666', text: 'Поля ограничений всегда 666; org_sub_code всегда 0; reportf_files пуст.', nodes: ['D3', 'A4'], kpi: 'tours' },
+    { id: 'f7', sev: 'medium', title: 'Рассинхрон пути БД', text: 'Код: sqlite/mytennis.db · факт: mytennis.db/mytennis.db.', nodes: ['D5', 'C6', 'K2'], kpi: 'db' },
+    { id: 'f8', sev: 'low', title: 'Даты / возраст / fee', text: '33 турнира end<begin; 604 в будущем; крайние age; fee=0 у 12,9%.', nodes: ['A4', 'R2'], kpi: 'tours' }
+  ];
+
+  var state = {
+    view: 'process',
+    selected: null,
+    scenarioId: SCENARIOS[0].id,
+    step: -1,
+    playing: false,
+    timer: null,
+    coverage: true,
+    gapsOnly: false,
+    laneFilter: '',
+    sevFilter: '',
+    kpi: null,
+    finding: null,
+    cliffIdx: 3
+  };
+
+  var nodeMap = {};
+  NODES.forEach(function (n) { nodeMap[n.id] = n; });
+
+  function $(id) { return document.getElementById(id); }
+
+  function covClass(c) { return c === 'ok' ? 'ok' : c === 'part' ? 'part' : 'no'; }
+
+  function renderStatsRow() {
+    var items = [
+      ['68 518', 'турниров'],
+      ['2.18M', 'строк рейтинга'],
+      ['366', 'срезов'],
+      ['36.8k', 'игроков'],
+      ['5', 'RPC-методов'],
+      ['8', 'находок']
+    ];
+    $('statsRow').innerHTML = items.map(function (it) {
+      return '<div class="stat"><b>' + it[0] + '</b><span>' + it[1] + '</span></div>';
+    }).join('');
+  }
+
+  function renderLaneFilter() {
+    var sel = $('laneFilter');
+    LANES.forEach(function (l) {
+      var o = document.createElement('option');
+      o.value = l.id;
+      o.textContent = l.title.replace(/\n/g, ' ');
+      sel.appendChild(o);
+    });
+  }
+
+  function renderScenarios() {
+    $('scenarioCount').textContent = String(SCENARIOS.length);
+    var sel = $('scenarioSelect');
+    var grid = $('scenarioGrid');
+    sel.innerHTML = '';
+    grid.innerHTML = '';
+    SCENARIOS.forEach(function (sc) {
+      var o = document.createElement('option');
+      o.value = sc.id;
+      o.textContent = sc.title;
+      if (sc.id === state.scenarioId) o.selected = true;
+      sel.appendChild(o);
+
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = sc.id === state.scenarioId ? 'active' : '';
+      b.innerHTML = '<span class="sid">' + sc.id + '</span>' + sc.title;
+      b.addEventListener('click', function () {
+        state.scenarioId = sc.id;
+        state.step = -1;
+        stopPlay();
+        renderScenarios();
+        updatePlayerChrome();
+        applyHighlights();
+      });
+      grid.appendChild(b);
+    });
+  }
+
+  function currentScenario() {
+    return SCENARIOS.find(function (s) { return s.id === state.scenarioId; }) || SCENARIOS[0];
+  }
+
+  function renderLanes() {
+    var root = $('lanes');
+    root.innerHTML = '';
+    LANES.forEach(function (lane) {
+      var el = document.createElement('div');
+      el.className = 'lane ' + lane.id;
+      el.dataset.lane = lane.id;
+      if (state.laneFilter && state.laneFilter !== lane.id) el.classList.add('dim');
+
+      var label = document.createElement('div');
+      label.className = 'lane-label';
+      label.innerHTML = lane.title.replace(/\n/g, '<br>');
+      el.appendChild(label);
+
+      var nodes = document.createElement('div');
+      nodes.className = 'lane-nodes';
+      NODES.filter(function (n) { return n.lane === lane.id; }).forEach(function (n) {
+        if (state.gapsOnly && n.cov === 'ok') return;
+        var node = document.createElement('div');
+        node.className = 'node cov-' + n.cov + (n.shape === 'decision' ? ' decision' : '');
+        node.dataset.id = n.id;
+        node.innerHTML =
+          '<div class="nid">' + n.id + '</div>' +
+          '<div class="ntitle">' + n.title + '</div>' +
+          '<div class="nmeta"><span class="pill cov ' + covClass(n.cov) + '">' + COV[n.cov] + '</span></div>';
+        node.addEventListener('click', function () { selectNode(n.id, true); });
+        nodes.appendChild(node);
+      });
+      el.appendChild(nodes);
+      root.appendChild(el);
+    });
+    applyHighlights();
+  }
+
+  function selectNode(id, fromClick) {
+    state.selected = id;
+    if (fromClick) {
+      state.step = -1;
+      stopPlay();
+      updatePlayerChrome();
+    }
+    applyHighlights();
+    renderSide(nodeMap[id]);
+  }
+
+  function applyHighlights() {
+    var path = [];
+    var sc = currentScenario();
+    if (state.step >= 0 && sc) {
+      path = sc.steps.slice(0, state.step + 1).map(function (s) { return s.node; });
+    }
+    document.querySelectorAll('.node').forEach(function (el) {
+      var id = el.dataset.id;
+      el.classList.toggle('selected', id === state.selected);
+      el.classList.toggle('play-active', state.step >= 0 && sc && sc.steps[state.step] && sc.steps[state.step].node === id);
+      if (state.step >= 0 && path.length) {
+        el.classList.toggle('dim', path.indexOf(id) === -1 && id !== state.selected);
+      } else if (state.finding) {
+        var f = FINDINGS.find(function (x) { return x.id === state.finding; });
+        el.classList.toggle('dim', f && f.nodes.indexOf(id) === -1);
+      } else {
+        el.classList.remove('dim');
+      }
+    });
+    document.querySelectorAll('.lane').forEach(function (el) {
+      if (state.laneFilter) el.classList.toggle('dim', el.dataset.lane !== state.laneFilter);
+      else el.classList.remove('dim');
+    });
+  }
+
+  function renderSide(n) {
+    if (!n) {
+      $('sideEmpty').hidden = false;
+      $('sideContent').hidden = true;
+      return;
+    }
+    $('sideEmpty').hidden = true;
+    var c = $('sideContent');
+    c.hidden = false;
+    var links = (n.links || []).map(function (l) {
+      return '<a href="' + l.href + '"' + (l.href.indexOf('http') === 0 ? ' target="_blank" rel="noopener"' : '') + '>' + l.label + '</a>';
+    }).join(' · ');
+    var nextHtml = (n.next || []).map(function (x) {
+      var label = x.to + (x.label ? ' — ' + x.label : '') + (x.dashed ? ' (пунктир)' : '');
+      return '<button type="button" data-to="' + x.to + '">' + label + '</button>';
+    }).join('');
+    c.innerHTML =
+      '<h2>' + n.title + '</h2>' +
+      '<div class="chips">' +
+        '<span class="chip">' + n.id + '</span>' +
+        '<span class="chip">' + (LANES.find(function (l) { return l.id === n.lane; }) || {}).title.replace(/\n/g, ' ') + '</span>' +
+        '<span class="chip">' + COV[n.cov] + '</span>' +
+        (n.tags || []).map(function (t) { return '<span class="chip">' + t + '</span>'; }).join('') +
+      '</div>' +
+      '<div class="kv">' +
+        '<div class="k">Суть</div><div class="v">' + n.full + '</div>' +
+        '<div class="k">Детали</div><div class="v">' + n.detail + '</div>' +
+        (links ? '<div class="k">Ссылки</div><div class="v">' + links + '</div>' : '') +
+      '</div>' +
+      (n.conflict ? '<div class="conflict">' + n.conflict + '</div>' : '') +
+      '<div class="block"><h3>Переходы</h3><div class="nexts">' + (nextHtml || '<p class="empty" style="padding:0">Нет исходящих</p>') + '</div></div>';
+    c.querySelectorAll('[data-to]').forEach(function (btn) {
+      btn.addEventListener('click', function () { selectNode(btn.getAttribute('data-to'), true); });
+    });
+  }
+
+  function updatePlayerChrome() {
+    var sc = currentScenario();
+    if (state.step < 0) {
+      $('playerTitle').textContent = sc.title;
+      $('playerNote').textContent = 'Нажмите «Плей» или кликните узел. Шагов: ' + sc.steps.length + '.';
+      $('playerProgress').style.width = '0%';
+      $('statusLine').textContent = 'сценарий: ' + sc.id;
+      return;
+    }
+    var st = sc.steps[state.step];
+    var n = nodeMap[st.node];
+    $('playerTitle').textContent = (state.step + 1) + '/' + sc.steps.length + ' · ' + (n ? n.title : st.node);
+    $('playerNote').textContent = st.note;
+    $('playerProgress').style.width = (((state.step + 1) / sc.steps.length) * 100).toFixed(1) + '%';
+    $('statusLine').textContent = sc.id + ' · шаг ' + (state.step + 1);
+  }
+
+  function stopPlay() {
+    state.playing = false;
+    if (state.timer) { clearInterval(state.timer); state.timer = null; }
+    $('btnPlay').textContent = '▶ Плей';
+  }
+
+  function playStep() {
+    var sc = currentScenario();
+    if (state.step >= sc.steps.length - 1) {
+      stopPlay();
+      return;
+    }
+    state.step += 1;
+    var id = sc.steps[state.step].node;
+    state.selected = id;
+    updatePlayerChrome();
+    applyHighlights();
+    renderSide(nodeMap[id]);
+    var el = document.querySelector('.node[data-id="' + id + '"]');
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  function setView(v) {
+    state.view = v;
+    document.querySelectorAll('#viewSeg button').forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-view') === v);
+    });
+    $('processView').hidden = v !== 'process';
+    $('statsView').hidden = v !== 'stats';
+    $('findingsView').hidden = v !== 'findings';
+    $('playerBar').style.display = v === 'process' ? '' : 'none';
+  }
+
+  function renderKpis() {
+    var items = [
+      { id: 'tours', v: '68 518', l: 'Турниры', d: '2005–2026 · blank loc 5445' },
+      { id: 'players', v: '36 795', l: 'Уник. игроки', d: 'по rating_roster' },
+      { id: 'cliff', v: '−33% / −43%', l: 'Cliff апр.2021', d: 'муж / жен' },
+      { id: 'geo', v: '98', l: 'Локации', d: '8 округов + 90 регионов' },
+      { id: 'db', v: '531 MB', l: 'SQLite', d: 'путь ≠ sqlite/…' },
+      { id: 'rpc', v: '5', l: 'RPC methods', d: 'публичный контур' }
+    ];
+    $('kpiGrid').innerHTML = items.map(function (it) {
+      return '<div class="kpi' + (state.kpi === it.id ? ' active' : '') + '" data-kpi="' + it.id + '">' +
+        '<div class="v">' + it.v + '</div><div class="l">' + it.l + '</div><div class="d">' + it.d + '</div></div>';
+    }).join('');
+    $('kpiGrid').querySelectorAll('[data-kpi]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        state.kpi = el.getAttribute('data-kpi');
+        renderKpis();
+        var f = FINDINGS.find(function (x) { return x.kpi === state.kpi; });
+        if (f) {
+          state.finding = f.id;
+          highlightFinding(f);
+        }
+      });
+    });
+  }
+
+  function renderCliff() {
+    var max = Math.max.apply(null, STATS.cliff.map(function (x) { return x.m + x.w; }));
+    var root = $('cliffSpark');
+    root.innerHTML = STATS.cliff.map(function (x, i) {
+      var h = Math.max(8, Math.round(((x.m + x.w) / max) * 72));
+      return '<i style="height:' + h + 'px" class="' + (x.cliff ? 'cliff ' : '') + (i === state.cliffIdx ? 'active' : '') + '" data-i="' + i + '" title="' + x.d + '"></i>';
+    }).join('');
+    root.querySelectorAll('i').forEach(function (el) {
+      el.addEventListener('click', function () {
+        state.cliffIdx = +el.getAttribute('data-i');
+        renderCliff();
+      });
+    });
+    var cur = STATS.cliff[state.cliffIdx];
+    var prev = STATS.cliff[Math.max(0, state.cliffIdx - 1)];
+    var dm = (((cur.m - prev.m) / prev.m) * 100).toFixed(1);
+    var dw = (((cur.w - prev.w) / prev.w) * 100).toFixed(1);
+    $('cliffCaption').textContent = cur.d + ' · муж ' + cur.m.toLocaleString('ru-RU') + ' · жен ' + cur.w.toLocaleString('ru-RU') +
+      (state.cliffIdx > 0 ? ' · Δ к пред. ' + dm + '% / ' + dw + '%' : '');
+  }
+
+  function renderBars(elId, data, maxKey) {
+    var max = Math.max.apply(null, data.map(function (x) { return x.n; }));
+    $(elId).innerHTML = data.map(function (x) {
+      var pct = Math.round((x.n / max) * 100);
+      return '<div class="bar-row"><div class="mono">' + x.k + '</div><div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div><div class="n">' + x.n.toLocaleString('ru-RU') + '</div></div>';
+    }).join('');
+  }
+
+  function renderFindings() {
+    var list = FINDINGS.filter(function (f) { return !state.sevFilter || f.sev === state.sevFilter; });
+    $('findingsGrid').innerHTML = list.map(function (f) {
+      return '<article class="finding' + (state.finding === f.id ? ' selected' : '') + '" data-fid="' + f.id + '">' +
+        '<div class="sev ' + f.sev + '">' + f.sev + '</div>' +
+        '<h4>' + f.title + '</h4><p>' + f.text + '</p></article>';
+    }).join('');
+    $('findingsGrid').querySelectorAll('[data-fid]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var f = FINDINGS.find(function (x) { return x.id === el.getAttribute('data-fid'); });
+        state.finding = f.id;
+        renderFindings();
+        highlightFinding(f);
+        setView('process');
+      });
+    });
+  }
+
+  function highlightFinding(f) {
+    if (!f || !f.nodes.length) return;
+    selectNode(f.nodes[0], true);
+    applyHighlights();
+    $('statusLine').textContent = 'находка: ' + f.id;
+  }
+
+  // events
+  $('viewSeg').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-view]');
+    if (!b) return;
+    setView(b.getAttribute('data-view'));
+  });
+  $('scenarioSelect').addEventListener('change', function () {
+    state.scenarioId = this.value;
+    state.step = -1;
+    stopPlay();
+    renderScenarios();
+    updatePlayerChrome();
+    applyHighlights();
+  });
+  $('btnPrev').addEventListener('click', function () {
+    stopPlay();
+    if (state.step > 0) {
+      state.step -= 1;
+      state.selected = currentScenario().steps[state.step].node;
+      updatePlayerChrome();
+      applyHighlights();
+      renderSide(nodeMap[state.selected]);
+    }
+  });
+  $('btnNext').addEventListener('click', function () {
+    stopPlay();
+    playStep();
+  });
+  $('btnPlay').addEventListener('click', function () {
+    if (state.playing) { stopPlay(); return; }
+    if (state.view !== 'process') setView('process');
+    state.playing = true;
+    $('btnPlay').textContent = '❚❚ Пауза';
+    if (state.step < 0) playStep();
+    state.timer = setInterval(playStep, 1600);
+  });
+  $('btnStop').addEventListener('click', function () {
+    stopPlay();
+    state.step = -1;
+    state.finding = null;
+    updatePlayerChrome();
+    applyHighlights();
+  });
+  $('btnCoverage').addEventListener('click', function () {
+    state.coverage = !state.coverage;
+    this.classList.toggle('active', state.coverage);
+    document.body.classList.toggle('coverage-off', !state.coverage);
+  });
+  $('btnGapsOnly').addEventListener('click', function () {
+    state.gapsOnly = !state.gapsOnly;
+    this.classList.toggle('active', state.gapsOnly);
+    renderLanes();
+  });
+  $('laneFilter').addEventListener('change', function () {
+    state.laneFilter = this.value;
+    renderLanes();
+  });
+  $('sevFilter').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-sev]');
+    if (!b) return;
+    state.sevFilter = b.getAttribute('data-sev');
+    Array.prototype.forEach.call(this.querySelectorAll('button'), function (x) {
+      x.classList.toggle('active', x === b);
+    });
+    renderFindings();
+  });
+
+  // init
+  renderStatsRow();
+  renderLaneFilter();
+  renderScenarios();
+  renderLanes();
+  updatePlayerChrome();
+  renderKpis();
+  renderCliff();
+  renderBars('membersBars', STATS.membersDist);
+  renderBars('handbookBars', STATS.handbookDist);
+  renderFindings();
+  setView('process');
+})();
+</script>
+</body>
+</html>
