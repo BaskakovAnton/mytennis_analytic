@@ -1,0 +1,407 @@
+<!doctype html>
+<title>Слепые зоны RTT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#F1F3EE;
+    --surface:#FFFFFF;
+    --surface-2:#E7EAE2;
+    --ink:#1B2321;
+    --ink-soft:#4B564F;
+    --ink-faint:#7C877F;
+    --accent:#1F6F4A;
+    --accent-soft:#E3EEE6;
+    --line:#D8DDD4;
+    --chart-1:#1F6F4A;
+    --chart-2:#8FAE9C;
+    --sev-critical:#B23A2E;      --sev-critical-soft:#F5E2DF;
+    --sev-high:#A9720C;          --sev-high-soft:#F3E7D2;
+    --sev-medium:#3B6EA5;        --sev-medium-soft:#DEE7F0;
+    --sev-low:#6B7570;           --sev-low-soft:#E7E9E4;
+    --shadow: 0 1px 2px rgba(27,35,33,.06), 0 6px 20px -8px rgba(27,35,33,.12);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#121815;
+      --surface:#182019;
+      --surface-2:#1E2721;
+      --ink:#E7EAE4;
+      --ink-soft:#AAB3AC;
+      --ink-faint:#788079;
+      --accent:#4FAE7C;
+      --accent-soft:#1C2B23;
+      --line:#2A332C;
+      --chart-1:#4FAE7C;
+      --chart-2:#4C6759;
+      --sev-critical:#E36453;      --sev-critical-soft:#3B211C;
+      --sev-high:#E0A83B;          --sev-high-soft:#3A2E14;
+      --sev-medium:#6FA0D9;        --sev-medium-soft:#1C2A38;
+      --sev-low:#8A968F;           --sev-low-soft:#232B26;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 24px -10px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#121815;
+    --surface:#182019;
+    --surface-2:#1E2721;
+    --ink:#E7EAE4;
+    --ink-soft:#AAB3AC;
+    --ink-faint:#788079;
+    --accent:#4FAE7C;
+    --accent-soft:#1C2B23;
+    --line:#2A332C;
+    --chart-1:#4FAE7C;
+    --chart-2:#4C6759;
+    --sev-critical:#E36453;      --sev-critical-soft:#3B211C;
+    --sev-high:#E0A83B;          --sev-high-soft:#3A2E14;
+    --sev-medium:#6FA0D9;        --sev-medium-soft:#1C2A38;
+    --sev-low:#8A968F;           --sev-low-soft:#232B26;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 24px -10px rgba(0,0,0,.5);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Public Sans", -apple-system, "Segoe UI", sans-serif;
+    line-height:1.55;
+    padding-inline:20px;
+    padding-block:48px 80px;
+  }
+  h1,h2,h3{
+    font-family:"Source Serif 4", Georgia, "Times New Roman", serif;
+    text-wrap:balance;
+    margin:0;
+    color:var(--ink);
+  }
+  .mono{ font-family:"IBM Plex Mono", "SFMono-Regular", Consolas, monospace; font-variant-numeric:tabular-nums; }
+
+  .page{ max-width:840px; margin-inline:auto; display:flex; flex-direction:column; gap:56px; min-width:0; }
+  /* flex/grid items default to min-width:auto, which for a replaced element
+     (the SVG chart) resolves to its intrinsic viewBox size — without this
+     reset that intrinsic width propagates up and forces the whole page wide */
+  .hero, .chart-wrap, .findings, .card, header, footer, .agenda{ min-width:0; }
+
+  /* ---------- header ---------- */
+  header{ display:flex; flex-direction:column; gap:18px; }
+  .eyebrow{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:.72rem; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--accent); font-weight:600;
+  }
+  h1{ font-size:clamp(2rem, 1.6rem + 1.8vw, 2.7rem); font-weight:700; }
+  .dek{ color:var(--ink-soft); font-size:1.05rem; max-width:60ch; }
+  .meta-strip{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(130px,1fr));
+    gap:1px; background:var(--line);
+    border:1px solid var(--line); border-radius:10px; overflow:hidden;
+    margin-top:8px;
+  }
+  .meta-cell{ background:var(--surface); padding:12px 16px; display:flex; flex-direction:column; gap:2px; }
+  .meta-cell .n{ font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:1.15rem; font-variant-numeric:tabular-nums; }
+  .meta-cell .l{ font-size:.72rem; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.06em; }
+
+  /* ---------- severity chip ---------- */
+  .chip{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:"IBM Plex Mono", monospace; font-size:.68rem; font-weight:600;
+    letter-spacing:.08em; text-transform:uppercase;
+    padding:4px 9px; border-radius:99px;
+  }
+  .chip::before{ content:""; width:6px; height:6px; border-radius:99px; background:currentColor; }
+  .chip.critical{ background:var(--sev-critical-soft); color:var(--sev-critical); }
+  .chip.high{ background:var(--sev-high-soft); color:var(--sev-high); }
+  .chip.medium{ background:var(--sev-medium-soft); color:var(--sev-medium); }
+  .chip.low{ background:var(--sev-low-soft); color:var(--sev-low); }
+
+  /* ---------- hero finding ---------- */
+  .hero{
+    background:var(--surface); border:1px solid var(--line); border-radius:16px;
+    padding:28px clamp(18px,4vw,34px); box-shadow:var(--shadow);
+    display:flex; flex-direction:column; gap:20px;
+  }
+  .hero-head{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
+  .hero-num{ font-family:"IBM Plex Mono",monospace; color:var(--ink-faint); font-size:.85rem; }
+  .hero h2{ font-size:clamp(1.3rem,1.05rem + 1vw,1.7rem); margin-top:8px; }
+  .hero-stats{ display:flex; gap:28px; flex-wrap:wrap; }
+  .big-stat{ display:flex; flex-direction:column; }
+  .big-stat .v{ font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:2.1rem; color:var(--sev-critical); line-height:1; }
+  .big-stat .l{ font-size:.78rem; color:var(--ink-soft); margin-top:6px; max-width:22ch; }
+
+  .chart-wrap{ background:var(--surface-2); border-radius:12px; padding:14px 10px 6px; }
+  .chart-wrap svg{ display:block; width:100%; height:auto; }
+  .legend{ display:flex; gap:18px; padding:0 10px 8px; font-size:.78rem; color:var(--ink-soft); flex-wrap:wrap; }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .legend i{ width:14px; height:3px; border-radius:2px; display:inline-block; }
+
+  .prose{ color:var(--ink-soft); font-size:.97rem; }
+  .prose strong{ color:var(--ink); font-weight:600; }
+  .prose + .prose{ margin-top:10px; }
+
+  .ask{
+    border-left:3px solid var(--accent); background:var(--accent-soft);
+    border-radius:0 10px 10px 0; padding:12px 16px; font-size:.93rem;
+  }
+  .ask b{ font-family:"IBM Plex Mono",monospace; font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); display:block; margin-bottom:4px; }
+
+  /* ---------- findings list ---------- */
+  .findings{ display:flex; flex-direction:column; gap:16px; }
+  .section-head{ display:flex; align-items:baseline; gap:12px; }
+  .section-head h2{ font-size:1.4rem; }
+  .section-head .count{ font-family:"IBM Plex Mono",monospace; color:var(--ink-faint); font-size:.85rem; }
+
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:20px clamp(16px,3vw,26px); display:flex; flex-direction:column; gap:12px;
+  }
+  .card-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .card-title{ display:flex; align-items:baseline; gap:10px; }
+  .card-title .idx{ font-family:"IBM Plex Mono",monospace; color:var(--ink-faint); font-size:.95rem; }
+  .card h3{ font-size:1.12rem; font-weight:600; }
+
+  .evidence{
+    background:var(--surface-2); border-radius:8px; padding:10px 14px;
+    font-family:"IBM Plex Mono",monospace; font-size:.85rem; color:var(--ink);
+    display:flex; flex-wrap:wrap; gap:6px 18px;
+  }
+  .evidence b{ color:var(--sev-critical); }
+  .card.medium .evidence b{ color:var(--sev-medium); }
+  .card.high .evidence b{ color:var(--sev-high); }
+  .card.low .evidence b{ color:var(--sev-low); }
+
+  .meter-row{ display:grid; grid-template-columns:1fr auto; align-items:center; gap:10px; font-size:.85rem; }
+  .meter-track{ grid-column:1 / -1; height:9px; border-radius:99px; background:var(--surface-2); overflow:hidden; }
+  .meter-fill{ height:100%; border-radius:99px; background:var(--ink-faint); }
+  .meter-label{ color:var(--ink-soft); }
+  .meter-val{ font-family:"IBM Plex Mono",monospace; text-align:right; color:var(--ink); }
+
+  .low-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .low-list li{ font-size:.9rem; color:var(--ink-soft); padding-left:16px; position:relative; }
+  .low-list li::before{ content:"—"; position:absolute; left:0; color:var(--ink-faint); }
+
+  /* ---------- agenda ---------- */
+  .agenda{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:24px clamp(16px,3vw,28px);
+  }
+  .agenda h2{ font-size:1.25rem; margin-bottom:14px; }
+  .agenda ol{ margin:0; padding-left:1.1em; display:flex; flex-direction:column; gap:9px; }
+  .agenda li{ padding-left:4px; }
+  .agenda li::marker{ font-family:"IBM Plex Mono",monospace; color:var(--accent); font-weight:600; }
+
+  footer{
+    border-top:1px solid var(--line); padding-top:20px;
+    color:var(--ink-faint); font-size:.82rem; display:flex; flex-direction:column; gap:6px;
+  }
+  footer .mono{ font-size:.8rem; }
+
+  @media (max-width:520px){
+    .hero-stats{ gap:18px; }
+    .big-stat .v{ font-size:1.7rem; }
+  }
+</style>
+
+<div class="page">
+
+  <header>
+    <div class="eyebrow">Внутренний брифинг · данные RTT</div>
+    <h1>Слепые зоны в данных RTT</h1>
+    <p class="dek">Полная выгрузка турнирной и рейтинговой базы RTT вскрыла восемь аномалий разного калибра — от одного резкого обвала рейтинга до полей, которые не работают ни дня за всю историю. Материал для разговора технического директора с собственником: что это значит для продукта и что решить в первую очередь.</p>
+    <div class="meta-strip">
+      <div class="meta-cell"><span class="n">68 518</span><span class="l">турниров, 2005–2026</span></div>
+      <div class="meta-cell"><span class="n">2 184 835</span><span class="l">строк рейтинга</span></div>
+      <div class="meta-cell"><span class="n">366</span><span class="l">рейтинг-листов, 2011–2026</span></div>
+      <div class="meta-cell"><span class="n">8</span><span class="l">находок, 2 критичные</span></div>
+    </div>
+  </header>
+
+  <!-- ================= HERO: finding #1 ================= -->
+  <section class="hero">
+    <div class="hero-head">
+      <span class="chip critical">Критично · находка 1</span>
+      <span class="hero-num">rating.roster · апрель 2021</span>
+    </div>
+    <h2>За один месяц рейтинг потерял треть игроков — и это никак не объяснено в данных</h2>
+
+    <div class="hero-stats">
+      <div class="big-stat"><span class="v">−33,1%</span><span class="l">мужской зачёт: 8 768 → 5 865 игроков, март→апрель 2021</span></div>
+      <div class="big-stat"><span class="v">−42,6%</span><span class="l">женский зачёт: 4 319 → 2 478 игроков, тот же месяц</span></div>
+      <div class="big-stat"><span class="v" style="color:var(--ink)">−6,5%</span><span class="l">крупнейшее падение во всех остальных 364 срезах с 2011 года</span></div>
+    </div>
+
+    <div class="chart-wrap">
+      <svg viewBox="0 0 760 300" role="img" aria-label="Число рейтингованных игроков, июнь 2019 – июнь 2022, с обвалом в апреле 2021">
+        <!-- gridlines -->
+        <g stroke="var(--line)" stroke-width="1">
+          <line x1="46" y1="274.0" x2="748" y2="274.0"/>
+          <line x1="46" y1="219.3" x2="748" y2="219.3"/>
+          <line x1="46" y1="164.5" x2="748" y2="164.5"/>
+          <line x1="46" y1="109.8" x2="748" y2="109.8"/>
+          <line x1="46" y1="55.1"  x2="748" y2="55.1"/>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--ink-faint)">
+          <text x="40" y="277.5" text-anchor="end">0</text>
+          <text x="40" y="222.8" text-anchor="end">2000</text>
+          <text x="40" y="168.0" text-anchor="end">4000</text>
+          <text x="40" y="113.3" text-anchor="end">6000</text>
+          <text x="40" y="58.6"  text-anchor="end">8000</text>
+        </g>
+
+        <!-- covid gap band (2020-03 -> 2020-11, no snapshots) -->
+        <rect x="280" y="14" width="23.4" height="260" fill="var(--surface)" opacity="0.6"/>
+        <text x="291.7" y="10" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="var(--ink-faint)">пауза COVID</text>
+
+        <!-- cliff band -->
+        <rect x="397" y="14" width="23.4" height="260" fill="var(--sev-critical)" opacity="0.10"/>
+
+        <!-- series 2 (women) first, so series 1 draws on top -->
+        <polyline points="46.0,160.5 69.4,160.5 92.8,160.0 116.2,160.2 139.6,159.3 163.0,159.3 186.4,158.3 209.8,157.7 233.2,156.7 256.6,156.4 280.0,154.3" fill="none" stroke="var(--chart-2)" stroke-width="2"/>
+        <polyline points="303.4,150.6 326.8,150.0 350.2,149.3 373.6,157.5 397.0,155.8 420.4,206.2 443.8,199.9 467.2,190.1 490.6,183.0 514.0,178.5 537.4,172.4 560.8,172.2 584.2,172.4 607.6,172.2 631.0,171.1 654.4,169.8 677.8,169.4 701.2,169.1 724.6,169.0 748.0,168.8" fill="none" stroke="var(--chart-2)" stroke-width="2"/>
+        <polyline points="280.0,154.3 303.4,150.6" fill="none" stroke="var(--chart-2)" stroke-width="1.5" stroke-dasharray="3,3"/>
+
+        <polyline points="46.0,34.4 69.4,36.7 92.8,38.3 116.2,42.6 139.6,44.4 163.0,47.1 186.4,48.1 209.8,50.5 233.2,45.2 256.6,42.6 280.0,39.6" fill="none" stroke="var(--chart-1)" stroke-width="2.5"/>
+        <polyline points="303.4,32.3 326.8,30.8 350.2,28.2 373.6,40.0 397.0,34.0 420.4,113.5 443.8,103.3 467.2,93.3 490.6,83.5 514.0,80.2 537.4,76.9 560.8,76.7 584.2,75.5 607.6,76.3 631.0,76.9 654.4,73.4 677.8,73.5 701.2,75.1 724.6,78.7 748.0,82.5" fill="none" stroke="var(--chart-1)" stroke-width="2.5"/>
+        <polyline points="280.0,39.6 303.4,32.3" fill="none" stroke="var(--chart-1)" stroke-width="1.5" stroke-dasharray="3,3"/>
+
+        <!-- cliff markers -->
+        <circle cx="397.0" cy="34.0" r="3.5" fill="var(--chart-1)"/>
+        <circle cx="420.4" cy="113.5" r="3.5" fill="var(--sev-critical)"/>
+        <circle cx="397.0" cy="155.8" r="3.5" fill="var(--chart-2)"/>
+        <circle cx="420.4" cy="206.2" r="3.5" fill="var(--sev-critical)"/>
+
+        <line x1="420.4" y1="113.5" x2="420.4" y2="206.2" stroke="var(--sev-critical)" stroke-width="1" stroke-dasharray="2,3"/>
+        <g font-family="IBM Plex Mono, monospace" font-size="11" font-weight="600" fill="var(--sev-critical)">
+          <text x="430" y="118">−33% / −43%</text>
+          <text x="430" y="131" font-weight="400" fill="var(--ink-faint)" font-size="9.5">за один месяц</text>
+        </g>
+
+        <!-- x labels -->
+        <g font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--ink-faint)">
+          <text x="46" y="292" text-anchor="start">06.2019</text>
+          <text x="408.7" y="292" text-anchor="middle" fill="var(--sev-critical)" font-weight="600">03→04.2021</text>
+          <text x="748" y="292" text-anchor="end">06.2022</text>
+        </g>
+      </svg>
+      <div class="legend">
+        <span><i style="background:var(--chart-1)"></i>rank 1 (мужчины)</span>
+        <span><i style="background:var(--chart-2)"></i>rank 2 (женщины)</span>
+        <span><i style="background:var(--sev-critical); opacity:.5"></i>обвал, апрель 2021</span>
+      </div>
+    </div>
+
+    <p class="prose"><strong>Гипотеза, требующая проверки:</strong> в собственном списке рейтинг-листов RTT нет ни одного снимка с марта по ноябрь 2020 — семь месяцев без обновлений, совпадающие с приостановкой турниров из-за COVID-19 (на графике — серая полоса). Обвал в апреле 2021 наступает почти ровно через один рейтинговый цикл после возобновления игр. Это похоже на массовое исключение игроков, у которых за (замороженное) окно подсчёта не набралось ни одного засчитываемого результата — а не на сбой импорта. Но это гипотеза по косвенным признакам, не факт, подтверждённый документацией.</p>
+
+    <div class="ask">
+      <b>Вопрос на обсуждение</b>
+      Это задокументированное правило истечения рейтинга — и тогда почему оно не отражено ни в одном публичном описании методики? Или это разовый сбой в расчёте/переносе данных, который может повториться?
+    </div>
+  </section>
+
+  <!-- ================= remaining findings ================= -->
+  <div class="findings">
+    <div class="section-head">
+      <h2>Ещё 7 находок</h2>
+      <span class="count">по убыванию приоритета</span>
+    </div>
+
+    <article class="card critical">
+      <div class="card-top">
+        <div class="card-title"><span class="idx">02</span><h3>«Призрачные» игроки в боевых рейтинговых данных</h3></div>
+        <span class="chip critical">Критично</span>
+      </div>
+      <div class="evidence"><b>490</b> строк рейтинга с именем «Р Т Т» и служебной датой рождения <b>2000-01-01</b>, повторяются в десятках снимков подряд, а не разово</div>
+      <p class="prose">Часть таких записей несёт реальные очки (0–74 в проверенной выборке) и позицию в рейтинге — то есть занимает место среди живых игроков в публичных данных, а не отфильтровывается на выходе.</p>
+      <div class="ask"><b>Вопрос на обсуждение</b>Для чего служат эти записи внутри системы (запасной слот? неявка соперника?) — и почему их не отсеивают перед тем, как отдать наружу?</div>
+    </article>
+
+    <article class="card high">
+      <div class="card-top">
+        <div class="card-title"><span class="idx">03</span><h3>Поле «участники турнира» не работает за всю историю</h3></div>
+        <span class="chip high">Важно</span>
+      </div>
+      <div class="evidence">68 518 турниров (2005–2026) → всего <b>8</b> уникальных значений; одно и то же число встречается на турнирах в разных городах, разделённых 20 годами</div>
+      <div class="meter-row">
+        <span class="meter-label mono">443 — самое частое значение</span><span class="meter-val">33 220 турниров</span>
+        <div class="meter-track"><div class="meter-fill" style="width:48.5%; background:var(--sev-high)"></div></div>
+      </div>
+      <p class="prose">Любая функция сверху — витрина «популярные турниры», оценка выручки на участника — считает не сигнал, а шум.</p>
+      <div class="ask"><b>Вопрос на обсуждение</b>Пишет ли в это поле хоть одна текущая система? Чинить или официально списать как нерабочее?</div>
+    </article>
+
+    <article class="card high">
+      <div class="card-top">
+        <div class="card-title"><span class="idx">04</span><h3>Геокодирование фактически отсутствует</h3></div>
+        <span class="chip high">Важно</span>
+      </div>
+      <div class="evidence">координаты заполнены у <b>1</b> региона из <b>98</b> — у остальных lat/lng = «0»</div>
+      <p class="prose">Карта или поиск «турниры рядом» технически не может работать сегодня — это стоит знать до того, как обещать такую функцию пользователям или партнёрам.</p>
+      <div class="ask"><b>Вопрос на обсуждение</b>Геокодирование когда-то подключали, или это нереализованный план?</div>
+    </article>
+
+    <article class="card medium">
+      <div class="card-top">
+        <div class="card-title"><span class="idx">05</span><h3>Мёртвые поля уходят наружу в каждом ответе API</h3></div>
+        <span class="chip medium">Средне</span>
+      </div>
+      <div class="evidence">cant_play / cant_leave / cant_request_wc = <b>666</b> на всех 68 518 турнирах без исключений · reportf_files — пустой массив в <b>100%</b> записей</div>
+      <p class="prose">Похоже на недоделанную функцию (вложения к отчётам) или отладочный маркер, который не подключили к реальной логике. Лишний вес в каждом ответе и путаница для интегратора.</p>
+      <div class="ask"><b>Вопрос на обсуждение</b>Можно убрать, или на этих полях где-то держится внешняя интеграция?</div>
+    </article>
+
+    <article class="card medium">
+      <div class="card-top">
+        <div class="card-title"><span class="idx">06</span><h3>8% турниров без места проведения — не разовый сбой</h3></div>
+        <span class="chip medium">Средне</span>
+      </div>
+      <div class="evidence"><b>5 445</b> из 68 518 турниров (<b>7,9%</b>) без города, непрерывно с 2005 по 2024 год включительно</div>
+      <p class="prose">Пробел не закрылся с переходом на текущие системы — значит, поле «место проведения» и сейчас не обязательно при создании турнира.</p>
+      <div class="ask"><b>Вопрос на обсуждение</b>Сделать локацию обязательным полем вперёд?</div>
+    </article>
+
+    <article class="card medium">
+      <div class="card-top">
+        <div class="card-title"><span class="idx">07</span><h3>Две трети турниров — без статуса</h3></div>
+        <span class="chip medium">Средне</span>
+      </div>
+      <div class="evidence"><b>66,9%</b> турниров (45 855 из 68 518) со статусом «0» — не входит ни в один из 12 реальных статусов справочника</div>
+      <div class="meter-row">
+        <span class="meter-label mono">tour_status = 0 («не задан»)</span><span class="meter-val">45 855</span>
+        <div class="meter-track"><div class="meter-fill" style="width:66.9%; background:var(--sev-medium)"></div></div>
+      </div>
+      <p class="prose">Любой отчёт или фильтр по статусу («сколько турниров отменили в этом году») по умолчанию не видит две трети каталога.</p>
+      <div class="ask"><b>Вопрос на обсуждение</b>Это восстановимо из системы-источника или принятый исторический пробел?</div>
+    </article>
+
+    <article class="card low">
+      <div class="card-top">
+        <div class="card-title"><span class="idx">08</span><h3>По мелочи — не для повестки, но на заметку</h3></div>
+        <span class="chip low">Низкий приоритет</span>
+      </div>
+      <ul class="low-list">
+        <li><span class="mono">33</span> турнира, где дата окончания раньше даты начала</li>
+        <li><span class="mono">13</span> игроков старше 70 лет и <span class="mono">5</span> младше 5 лет в основном рейтинге — часть случаев объяснима (ветераны), но стоит выборочно сверить</li>
+        <li><span class="mono">390</span> строк рейтинга с 0 очков при 1+ засчитанном результате — вероятно норма, но стоит убедиться, что это не ошибка подсчёта</li>
+      </ul>
+    </article>
+  </div>
+
+  <!-- ================= agenda ================= -->
+  <section class="agenda">
+    <h2>Что взять на встречу</h2>
+    <ol class="mono">
+      <li style="font-family:'Public Sans',sans-serif;">Апрель 2021: правило или сбой? Нужен ответ до того, как эти данные попадут в любую презентацию роста.</li>
+      <li style="font-family:'Public Sans',sans-serif;">Записи «Р Т Т» — согласовать фильтрацию на уровне выдачи, если это техническая заглушка.</li>
+      <li style="font-family:'Public Sans',sans-serif;">tour_members и геокодирование — почистить или официально закрыть как нереализованные, чтобы не удивлять новых интеграторов.</li>
+      <li style="font-family:'Public Sans',sans-serif;">Статус и локация турнира — сделать обязательными полями при создании, если пробел признан нежелательным.</li>
+    </ol>
+  </section>
+
+  <footer>
+    <span class="mono">Источник: apirtt.mytennis.online — публичный API без официальной документации, схема восстановлена вручную (см. openapi.yaml).</span>
+    <span>Полная выгрузка: sqlite/mytennis.db · 68 518 турниров · 2 184 835 строк рейтинга · 366 срезов (2011–2026) · 98 локаций · 232 значения справочников.</span>
+    <span>Собрано scripts/collect.py (1 запрос/сек), проверено scripts/analyze.py (pandas + matplotlib) и точечными SQL-запросами. Дата анализа: 12 сентября 2026.</span>
+  </footer>
+
+</div>

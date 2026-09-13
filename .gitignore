@@ -1,0 +1,14 @@
+# Database files (large)
+sqlite/mytennis.db
+sqlite/*.db
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Logs
+sqlite/sync.log
+*.log
+
+# Claude/local files
+.claude/

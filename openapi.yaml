@@ -1,0 +1,582 @@
+openapi: 3.0.3
+info:
+  title: MyTennis RTT Public API
+  description: |
+    Reverse-engineered OpenAPI schema for the public JSON-RPC-style API used by
+    https://mytennis.online (Russian Tennis Tour ratings/tournaments site).
+
+    There is **no published Swagger/OpenAPI document** for this API — every
+    conventional discovery path (`/swagger.json`, `/api-docs`, `/openapi.json`,
+    `/docs`, `/swagger`) 302-redirects to `/member/login` regardless of whether
+    the path exists, so it cannot be used to confirm or deny a real spec. This
+    file was built by capturing live responses from the endpoint for each
+    known `method` value.
+
+    ### How the API works
+    The entire public API is a single endpoint: `POST /api/v1/public`.
+    Requests are sent as `multipart/form-data` (not JSON) and use a
+    PHP-style bracket notation for arrays:
+      - `method[0]=tour.roster` selects which RPC method to invoke.
+        Multiple methods could theoretically be batched as `method[0]`,
+        `method[1]`, ... in one request (untested — only single-method
+        calls were observed).
+      - `ruid` is a client-generated request id (observed as an epoch-ms
+        timestamp); it is echoed back verbatim in the response and does not
+        appear to affect server behavior.
+      - Extra params vary per method (see `x-rpc-methods` below and the
+        per-example request bodies).
+
+    Every response — regardless of method — is wrapped in the same envelope
+    (`Envelope` schema): `status`/`code`/`desc` for outcome, `data` keyed by
+    the method name that was called, plus `debug`, `ruid` (echoed), `stack`,
+    and `timestamp`.
+
+    Note: nearly all scalar values in responses are JSON strings even when
+    numeric (e.g. `"tour_id":"6149"`), a common trait of PHP backends that
+    don't cast DB values before encoding. A handful of fields (`cant_play`,
+    `cant_leave`, `cant_request_wc`, `org_sub_code`) are real JSON integers.
+  version: "1.0"
+  x-discovery-notes: >
+    CORS response headers on this host advertise
+    `Authorization, X-API-Token, X-API-DBN` in Access-Control-Allow-Headers,
+    implying authenticated/member-only methods exist beyond the 5 documented
+    here (which all worked with no auth, using only a session cookie that
+    was not validated). Only the 5 methods seen in the provided curl samples
+    are documented.
+servers:
+  - url: https://apirtt.mytennis.online
+    description: Public API host (separate from the https://mytennis.online frontend)
+
+tags:
+  - name: rpc
+    description: The single public RPC endpoint
+
+paths:
+  /api/v1/public:
+    post:
+      tags: [rpc]
+      summary: Invoke one public RPC method
+      description: >
+        Dispatches to a handler based on `method[0]`. See `x-rpc-methods`
+        for the full list of known methods, their parameters, and result
+        shapes. `curl` examples for each method are under
+        `requestBody.content.multipart/form-data.examples`.
+      operationId: invokePublicMethod
+      x-rpc-methods:
+        - method: tour.roster
+          description: Paginated, filterable/sortable list of tournaments.
+          params:
+            page_no: {type: integer, example: 1, description: "1-based page number"}
+            per_page: {type: integer, example: 10}
+            sort_field: {type: string, example: begin_date}
+            sort_order: {type: string, enum: [ASC, DESC], example: ASC}
+            range: {type: string, example: period, description: "Date-range scope for the query; observed value 'period'"}
+            tour_status: {type: string, example: "836", description: "Optional filter — item_id from the tour_status handbook"}
+            tour_rank: {type: string, example: "222", description: "Optional filter — item_id from the tour_rank handbook"}
+          result: "#/components/schemas/TourRosterData"
+        - method: location.search.term
+          description: Search/browse locations (countries, federal districts, regions, cities...) by type and free-text term.
+          params:
+            limit: {type: integer, example: 300}
+            "types[0]": {type: string, example: "1", description: "Location type id (1=federal district, 2=region, observed)"}
+            parent: {type: string, example: "", description: "Parent location_id to scope the search; empty = top level"}
+            term: {type: string, example: "", description: "Free-text search term; empty returns the full list up to `limit`"}
+          result: "#/components/schemas/LocationSearchData"
+        - method: handbook.items
+          description: Fetch one or more reference/lookup tables (handbooks) by key, e.g. for populating filter dropdowns.
+          params:
+            "handbooks[0]": {type: string, example: tour_status}
+            "handbooks[1]": {type: string, example: tour_rank}
+            "handbooks[N]": {type: string, description: "Repeat handbooks[n] for each handbook key requested. Observed keys: tour_status, tour_rank, tour_format_calendar, tour_category, tour_system, tour_access, cover_type, timezone"}
+          result: "#/components/schemas/HandbookItemsData"
+        - method: rating.list
+          description: List all published rating snapshots (one per gender per period).
+          params: {}
+          result: "#/components/schemas/RatingListData"
+        - method: rating.roster
+          description: Paginated player rankings for one rating snapshot.
+          params:
+            page_no: {type: integer, example: 1}
+            per_page: {type: integer, example: 10}
+            rating: {type: string, example: "20260901", description: "rating_id from rating.list (format YYYYMMDD + suffix)"}
+            rank: {type: string, example: "1", description: "Gender/category selector: 1=men, 2=women (inferred from rating.list rank values)"}
+          result: "#/components/schemas/RatingRosterData"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/RpcRequest"
+            examples:
+              tour.roster:
+                summary: List tournaments (page 1, sorted by start date)
+                value:
+                  ruid: "1789206723831"
+                  "method[0]": tour.roster
+                  page_no: "1"
+                  per_page: "10"
+                  sort_field: begin_date
+                  sort_order: ASC
+                  range: period
+              tour.roster_filtered:
+                summary: List tournaments filtered by tour_status and tour_rank
+                value:
+                  ruid: "1789206750211"
+                  "method[0]": tour.roster
+                  page_no: "1"
+                  per_page: "10"
+                  sort_field: begin_date
+                  sort_order: ASC
+                  range: period
+                  tour_status: "836"
+                  tour_rank: "222"
+              location.search.term:
+                summary: List top-level locations of type 1 (federal districts)
+                value:
+                  ruid: "1789206723952"
+                  "method[0]": location.search.term
+                  limit: "300"
+                  "types[0]": "1"
+                  parent: ""
+                  term: ""
+              handbook.items:
+                summary: Fetch several handbooks at once
+                value:
+                  ruid: "1789206724004"
+                  "method[0]": handbook.items
+                  "handbooks[0]": tour_status
+                  "handbooks[1]": tour_rank
+                  "handbooks[2]": tour_format_calendar
+                  "handbooks[3]": tour_category
+                  "handbooks[4]": tour_system
+              rating.list:
+                summary: List all rating snapshots
+                value:
+                  ruid: "1789206728246"
+                  "method[0]": rating.list
+              rating.roster:
+                summary: Top 5 men's ranking for the 2026-09-01 snapshot
+                value:
+                  ruid: "1789206728567"
+                  "method[0]": rating.roster
+                  page_no: "1"
+                  per_page: "5"
+                  rating: "20260901"
+                  rank: "1"
+      responses:
+        "200":
+          description: >
+            RPC call completed. NOTE: the server appears to always return
+            HTTP 200 and signal errors via the `status`/`code`/`desc` fields
+            in the body rather than HTTP status codes (unverified — no error
+            response was captured in the provided samples).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+              examples:
+                tour.roster:
+                  value:
+                    uri: /api/v1/public
+                    status: success
+                    code: ""
+                    desc: ""
+                    data:
+                      tour.roster:
+                        navigator: {count: 68568, page_no: 1, per_page: 10, page_max: 6857, rbegin: 1, rend: 10}
+                        records:
+                          - {tour_id: "6149", name: "\"Рождественский\"", tour_year: "2005", begin_date: "2005-01-03", end_date: "2005-01-09", location: "Лысьва", org_full: "ХК ОАО \"Привод\" ОО \"СК \"Катана\"", fee: "600", currency: "RUB", cant_play: 666, cant_leave: 666, cant_request_wc: 666, reportf_files: [], org_sub_code: 0}
+                    debug: ""
+                    ruid: "1789206723831"
+                    stack: []
+                    timestamp: 1789207004
+                location.search.term:
+                  value:
+                    uri: /api/v1/public
+                    status: success
+                    code: ""
+                    desc: ""
+                    data:
+                      location.search.term:
+                        - {location_id: "1419", type: "1", name: "Дальневосточный ФО", path: "Дальневосточный ФО, Россия", parents: "1", lat: "0", lng: "0", timezone: ""}
+                      term: ""
+                    debug: ""
+                    ruid: "1789206723952"
+                    stack: []
+                    timestamp: 1789207041
+                handbook.items:
+                  value:
+                    uri: /api/v1/public
+                    status: success
+                    code: ""
+                    desc: ""
+                    data:
+                      handbooks:
+                        tour_status:
+                          - {item_id: "746", handbook_id: "72", parent_id: "0", position: "1", enabled: "1", selected: "1", value: canceled, value2: canceled, name: "Отменен", data: "Турнир отменен Организатором "}
+                    debug: ""
+                    ruid: "1789206724004"
+                    stack: []
+                    timestamp: 1789207118
+                rating.list:
+                  value:
+                    uri: /api/v1/public
+                    status: success
+                    code: ""
+                    desc: ""
+                    data:
+                      rating.list:
+                        - {rating_id: "202609011", rank: "1", rating_date: "2026-09-01", start_date: "2025-09-01", actual_date: "2026-09-01", comment: "Готово, считалась: 924 сек, 2026-09-02 21:40:49"}
+                    debug: ""
+                    ruid: "1789206728246"
+                    stack: []
+                    timestamp: 1789207064
+                rating.roster:
+                  value:
+                    uri: /api/v1/public
+                    status: success
+                    code: ""
+                    desc: ""
+                    data:
+                      rating.roster:
+                        navigator: {count: 7117, page_no: 1, per_page: 10, page_max: 712, rbegin: 1, rend: 10}
+                        records:
+                          - {rating_id: "202609011", player_id: "84822", points: "205492", counted: "10", total: "19", age: "19", ag1: "17", ag2: "19", age_group: "136", location_id: "162", region_id: "110", gender: "2", position: "1", name: "Андреева Мирра Александровна", rtt_number: "35519", birth_date: "2007-04-29", city: "Жуковский", filter_pos: "1"}
+                    debug: ""
+                    ruid: "1789206728567"
+                    stack: []
+                    timestamp: 1789207064
+
+components:
+  schemas:
+    RpcRequest:
+      type: object
+      description: >
+        multipart/form-data body. `method[0]` is required; every other field
+        is method-dependent (see the parent operation's `x-rpc-methods`).
+        Arrays use PHP bracket notation as literal field names
+        (`method[0]`, `types[0]`, `handbooks[0]`, `handbooks[1]`, ...).
+      required: [ruid, "method[0]"]
+      properties:
+        ruid:
+          type: string
+          description: "Client-generated request id (observed format: epoch milliseconds as a string). Echoed back unchanged in the response."
+          example: "1789206723831"
+        "method[0]":
+          type: string
+          description: RPC method name to invoke.
+          enum: [tour.roster, location.search.term, handbook.items, rating.list, rating.roster]
+      additionalProperties:
+        description: Method-specific parameters (see x-rpc-methods on the POST operation for the field list per method).
+        type: string
+
+    Envelope:
+      type: object
+      description: Common response wrapper for every RPC method.
+      required: [uri, status, code, desc, data, debug, ruid, stack, timestamp]
+      properties:
+        uri:
+          type: string
+          example: /api/v1/public
+        status:
+          type: string
+          description: "Observed value: 'success'. Presumed alternative: 'error' (not observed)."
+          example: success
+        code:
+          type: string
+          description: Error code; empty string on success.
+        desc:
+          type: string
+          description: Human-readable error/status description; empty string on success.
+        data:
+          description: >
+            Keyed by the requested method name (e.g. `data["tour.roster"]`),
+            except handbook.items which nests under a fixed `handbooks` key.
+            Exactly one of these shapes is present per response, matching
+            whichever method was invoked in the request.
+          oneOf:
+            - $ref: "#/components/schemas/TourRosterData"
+            - $ref: "#/components/schemas/LocationSearchData"
+            - $ref: "#/components/schemas/HandbookItemsData"
+            - $ref: "#/components/schemas/RatingListData"
+            - $ref: "#/components/schemas/RatingRosterData"
+        debug:
+          type: string
+        ruid:
+          type: string
+          description: Echoes the request's `ruid`.
+        stack:
+          type: array
+          items: {}
+          description: Presumed error stack trace container; empty array on success.
+        timestamp:
+          type: integer
+          description: Server-side response timestamp. NOTE — observed values are far in the future relative to real-world epoch time; this API/environment appears to run with a shifted clock, so do not assume standard Unix-epoch semantics.
+
+    Navigator:
+      type: object
+      description: Pagination info attached to list results.
+      properties:
+        count: {type: integer, description: Total matching records across all pages}
+        page_no: {type: integer}
+        per_page: {type: integer}
+        page_max: {type: integer, description: Total number of pages}
+        rbegin: {type: integer, description: 1-based index of first record on this page}
+        rend: {type: integer, description: 1-based index of last record on this page}
+
+    TourRosterData:
+      type: object
+      description: 'Shape of `data` when the request''s method[0] was tour.roster.'
+      required: ["tour.roster"]
+      properties:
+        "tour.roster": {$ref: "#/components/schemas/TourRosterResult"}
+
+    LocationSearchData:
+      type: object
+      description: 'Shape of `data` when the request''s method[0] was location.search.term.'
+      required: ["location.search.term"]
+      properties:
+        "location.search.term":
+          type: array
+          items: {$ref: "#/components/schemas/LocationItem"}
+        term: {type: string}
+
+    HandbookItemsData:
+      type: object
+      description: 'Shape of `data` when the request''s method[0] was handbook.items.'
+      required: [handbooks]
+      properties:
+        handbooks: {$ref: "#/components/schemas/HandbookItemsResult"}
+
+    RatingListData:
+      type: object
+      description: 'Shape of `data` when the request''s method[0] was rating.list.'
+      required: ["rating.list"]
+      properties:
+        "rating.list":
+          type: array
+          items: {$ref: "#/components/schemas/RatingListItem"}
+
+    RatingRosterData:
+      type: object
+      description: 'Shape of `data` when the request''s method[0] was rating.roster.'
+      required: ["rating.roster"]
+      properties:
+        "rating.roster": {$ref: "#/components/schemas/RatingRosterResult"}
+
+    TourRosterResult:
+      type: object
+      properties:
+        navigator: {$ref: "#/components/schemas/Navigator"}
+        records:
+          type: array
+          items: {$ref: "#/components/schemas/TourRecord"}
+
+    TourRecord:
+      type: object
+      description: >
+        One tournament "leg" (a tour can appear multiple times with the same
+        tour_id/wizard_id/number when it has several draws — e.g. by gender
+        or age category — each as a separate record differing in
+        tour_gender/player_age/tour_rank/fee/etc).
+      properties:
+        tour_id: {type: string}
+        is_imported: {type: string}
+        is_finished: {type: string}
+        report_status: {type: string}
+        tour_rating: {type: string}
+        tour_rating_category: {type: string}
+        wizard_id: {type: string, description: Groups multiple draws of the same physical tournament}
+        same_as: {type: string}
+        original: {type: string}
+        name: {type: string}
+        subname: {type: string}
+        desc: {type: string}
+        number: {type: string}
+        tour_year: {type: string}
+        tour_month: {type: string}
+        tour_status: {type: string, description: item_id from the tour_status handbook}
+        tour_format: {type: string}
+        tour_format_calendar: {type: string, description: item_id from the tour_format_calendar handbook}
+        tour_type: {type: string}
+        tour_level: {type: string}
+        tour_serie: {type: string}
+        location_id: {type: string}
+        timezone: {type: string}
+        logo_file: {type: string}
+        is_public: {type: string}
+        tour_category: {type: string, description: item_id from the tour_category handbook}
+        tour_rank: {type: string, description: item_id from the tour_rank handbook}
+        tour_access: {type: string, description: item_id from the tour_access handbook}
+        tour_gender: {type: string}
+        player_age: {type: string}
+        fee: {type: string}
+        prize: {type: string}
+        currency: {type: string}
+        stop_requests: {type: string}
+        stop_wc_org: {type: string}
+        stop_wc_rtt: {type: string}
+        tour_system: {type: string, description: item_id from the tour_system handbook}
+        org_id: {type: string}
+        org_full: {type: string}
+        org_short: {type: string}
+        org_paycard: {type: string}
+        covers:
+          type: string
+          description: "Encoded list of court coverings: entries joined by '^^', fields within an entry joined by '||' (count||label||count2)"
+        sob:
+          type: string
+          nullable: true
+          description: "Encoded sports facility (school of Olympic reserve, etc): id||name||address||?||? joined by '||'; null when unknown"
+        location: {type: string}
+        location_full: {type: string}
+        referee_name: {type: string}
+        referee_id: {type: string}
+        courator_name: {type: string}
+        prioritypos_in_requests: {type: string}
+        prioritypos_in_entry: {type: string}
+        begin_date: {type: string, format: date}
+        end_date: {type: string, format: date}
+        tour_week: {type: string}
+        tour_members: {type: string}
+        sob_id: {type: string}
+        courts: {type: string, description: Same encoding as `covers`}
+        pay_card: {type: string}
+        pay_invoice: {type: string}
+        pay_cash: {type: string}
+        entry_begin: {type: string, format: date-time}
+        entry_end: {type: string, format: date-time}
+        lateentry_end: {type: string, format: date-time}
+        lateleave_begin: {type: string, format: date-time}
+        lateleave_end: {type: string, format: date-time}
+        pub_ratinglist_dt: {type: string, format: date-time}
+        filter_geo: {type: string}
+        filter_rank: {type: string}
+        min_sport_rank: {type: string}
+        max_sport_rank: {type: string}
+        wc_player_start_dt: {type: string, format: date-time}
+        wc_player_stop_rtt_dt: {type: string, format: date-time}
+        wc_player_stop_rtt_dt_loc: {type: string}
+        wc_player_stop_org_dt: {type: string, format: date-time}
+        wc_public_rtt_stop_dt: {type: string, format: date-time}
+        wc_public_rtt_stop_dt_loc: {type: string}
+        wc_public_org_stop_dt: {type: string, format: date-time}
+        list_freezed: {type: string}
+        freeze_dt: {type: string, format: date-time}
+        min_team: {type: string}
+        max_team: {type: string}
+        cnt_team: {type: string}
+        ignorejoinlist: {type: string}
+        ignorelatejoin: {type: string}
+        ot_stage_id: {type: string, description: "'ot' = 'Основной турнир' (main draw)"}
+        ot_type: {type: string}
+        ot_begin_dt: {type: string, format: date}
+        ot_end_dt: {type: string, format: date}
+        ot_fee: {type: string}
+        ot_currency: {type: string}
+        ot_group_count: {type: string}
+        ot_member_count: {type: string}
+        ot_poe_count: {type: string}
+        ot_seed_count: {type: string}
+        ot_organizer_wc: {type: string}
+        ot_courator_wc: {type: string}
+        ot_lateleave_end: {type: string, format: date-time}
+        ot_online_bdt: {type: string, format: date-time}
+        ot_online_edt: {type: string, format: date-time}
+        oe_stage_id: {type: string, description: "'oe' = 'Отборочный турнир' (qualifying draw)"}
+        oe_begin_dt: {type: string, format: date}
+        oe_end_dt: {type: string, format: date}
+        oe_fee: {type: string}
+        oe_currency: {type: string}
+        oe_group_count: {type: string}
+        oe_member_count: {type: string}
+        oe_seed_count: {type: string, description: "Observed inconsistently typed — value 'RUB' seen instead of a count in sample data"}
+        oe_organizer_wc: {type: string}
+        oe_courator_wc: {type: string}
+        oe_lateleave_end: {type: string, format: date-time}
+        oe_online_bdt: {type: string, format: date-time}
+        oe_online_edt: {type: string, format: date-time}
+        winner_name: {type: string}
+        cant_play: {type: integer, description: "Sentinel/flag field; observed literal value 666 in every sample record"}
+        cant_leave: {type: integer, description: "Sentinel/flag field; observed literal value 666 in every sample record"}
+        cant_request_wc: {type: integer, description: "Sentinel/flag field; observed literal value 666 in every sample record"}
+        reportf_files:
+          type: array
+          items: {}
+          description: Report file attachments; empty in all observed records
+        org_sub_code: {type: integer}
+
+    LocationItem:
+      type: object
+      properties:
+        location_id: {type: string}
+        type: {type: string, description: "Location type id, e.g. 1=federal district, 2=region (inferred from request examples)"}
+        name: {type: string}
+        path: {type: string, description: Full breadcrumb name including ancestors}
+        parents: {type: string, description: "'|'-free list — observed as a single parent id string"}
+        lat: {type: string}
+        lng: {type: string}
+        timezone: {type: string}
+
+    HandbookItemsResult:
+      type: object
+      description: data.handbooks, keyed by each requested handbook name.
+      additionalProperties:
+        type: array
+        items: {$ref: "#/components/schemas/HandbookItem"}
+
+    HandbookItem:
+      type: object
+      properties:
+        item_id: {type: string}
+        handbook_id: {type: string}
+        parent_id: {type: string, description: "For hierarchical handbooks; '0' = top level"}
+        position: {type: string, description: Display sort order}
+        enabled: {type: string}
+        selected: {type: string}
+        value: {type: string, description: Machine-readable code}
+        value2: {type: string}
+        name: {type: string, description: Human-readable label}
+        data: {type: string, description: Extended description/tooltip text}
+
+    RatingListItem:
+      type: object
+      properties:
+        rating_id: {type: string, description: "Primary key used as the `rating` param in rating.roster; format YYYYMM01 + a 1-digit rank suffix"}
+        rank:
+          type: string
+          description: "Category selector referenced by rating.roster's `rank` param — observed values 1 and 2 (gender, inferred from player genders returned by rating.roster)"
+        rating_date: {type: string, format: date, description: Effective/published date of this rating snapshot}
+        start_date: {type: string, format: date, description: Start of the rolling window this rating was computed over}
+        actual_date: {type: string, format: date, description: Date the computation actually completed/was published}
+        comment: {type: string, description: Free-text computation log message; empty for older snapshots}
+
+    RatingRosterResult:
+      type: object
+      properties:
+        navigator: {$ref: "#/components/schemas/Navigator"}
+        records:
+          type: array
+          items: {$ref: "#/components/schemas/RatingRosterRecord"}
+
+    RatingRosterRecord:
+      type: object
+      properties:
+        rating_id: {type: string}
+        player_id: {type: string}
+        points: {type: string}
+        counted: {type: string, description: Number of tournament results counted toward `points`}
+        total: {type: string, description: Total tournament results available}
+        age: {type: string}
+        ag1: {type: string, description: Age-group lower bound}
+        ag2: {type: string, description: Age-group upper bound}
+        age_group: {type: string, description: item_id of the age-group category}
+        location_id: {type: string}
+        region_id: {type: string}
+        gender: {type: string, description: "1=male, 2=female (inferred)"}
+        position: {type: string, description: Rank position within this record's age_group/category}
+        name: {type: string}
+        rtt_number: {type: string, description: Player's federation registration number}
+        birth_date: {type: string, format: date}
+        city: {type: string}
+        filter_pos: {type: string, description: Rank position within the overall (unfiltered) list}

@@ -1,0 +1,239 @@
+================================================================================ 
+1. Sentinel/placeholder fields in tournaments
+ ================================================================================
+cant_play distinct: [666]
+cant_leave distinct: [666]
+cant_request_wc distinct: [666]
+org_sub_code distinct: [0]
+reportf_files non-'[]' count: 0 / 68518
+================================================================================ 
+2. Blank/null location
+ ================================================================================
+blank location count: 5445 (7.9%)
+2005-01-26 2024-12-24
+distinct location_id for blank rows: <StringArray>
+['0']
+Length: 1, dtype: str
+================================================================================ 
+3. tour_members field sanity
+ ================================================================================
+   tour_id  begin_date tour_members
+0     6149  2005-01-03          439
+1     6154  2005-01-03          439
+2     6155  2005-01-03          441
+3     6156  2005-01-03          443
+4     6193  2005-01-03          439
+5     6194  2005-01-03          439
+6     6195  2005-01-03          439
+7     6196  2005-01-03          439
+8     6197  2005-01-03          439
+9     6233  2005-01-03          443
+10    6238  2005-01-03          443
+11    6242  2005-01-03          443
+12    6364  2005-01-03          439
+13    6365  2005-01-03          439
+14    6445  2005-01-03          439
+15    6446  2005-01-03          439
+16    6447  2005-01-03          439
+17    6450  2005-01-03          439
+18    6456  2005-01-03          439
+19    6457  2005-01-03          439
+20    6464  2005-01-03          441
+21    6465  2005-01-03          441
+22    6466  2005-01-03          441
+23    6508  2005-01-03          439
+24    6535  2005-01-03          439
+25    6536  2005-01-03          439
+26    6537  2005-01-03          439
+27    6538  2005-01-03          439
+28    6809  2005-01-03          435
+29    6828  2005-01-03          439
+tour_members stats:
+ count    68518.000000
+mean       430.012260
+std         73.747853
+min          0.000000
+25%        439.000000
+50%        441.000000
+75%        443.000000
+max       1741.000000
+Name: tour_members, dtype: float64
+distinct tour_members values count: 8 / 68518
+================================================================================ 
+3b. tour_members distinct values + when they occur
+ ================================================================================
+tour_members
+443     33220
+439     17013
+441     12342
+437      2551
+0        1792
+435      1576
+1741       19
+433         5
+Name: count, dtype: int64
+
+                    min        max  count
+tour_members                             
+0            2005-02-14 2026-12-22   1792
+433          2005-01-10 2026-01-19      5
+435          2005-01-03 2026-11-02   1576
+437          2005-07-04 2026-12-14   2551
+439          2005-01-03 2026-12-15  17013
+441          2005-01-03 2026-12-21  12342
+443          2005-01-03 2026-12-15  33220
+1741         2006-05-22 2009-08-23     19
+================================================================================ 
+4. Date sanity checks
+ ================================================================================
+end_date < begin_date count: 33
+     tour_id begin_date  ...            entry_end tour_year
+918     6253 2005-10-31  ...  2005-10-17 22:00:00      2005
+919     6256 2005-10-31  ...  2005-10-17 22:00:00      2005
+920     6257 2005-10-31  ...  2005-10-17 22:00:00      2005
+921     6258 2005-10-31  ...  2005-10-17 22:00:00      2005
+2479   10655 2007-06-11  ...  2007-05-21 22:00:00      2007
+
+[5 rows x 6 columns]
+tour_year mismatch vs begin_date year: 0
+null/unparseable begin_date: 0
+tournaments with begin_date in the future (> 2026-09-12 ): 604
+================================================================================ 
+5. Fee / currency sanity
+ ================================================================================
+distinct currencies: <StringArray>
+['RUB']
+Length: 1, dtype: str
+fee==0 count: 8850 (12.9%)
+fee stats:
+ count    68518.000000
+mean      1185.977466
+std        675.632343
+min          0.000000
+25%       1000.000000
+50%       1100.000000
+75%       1500.000000
+max       6000.000000
+Name: fee, dtype: float64
+top 10 highest fees:
+ 456      6000
+59538    5000
+59285    5000
+50432    5000
+50431    5000
+50430    5000
+57410    5000
+59791    5000
+57412    5000
+61986    5000
+Name: fee, dtype: int64
+================================================================================ 
+6. rating_roster sanity
+ ================================================================================
+counted > total count: 0
+age < 5 count: 5  | age > 70 count: 13
+age extremes sample:
+                                       name  age  birth_date  rating_id
+567683   Колчанова Анастасия Александровна    0  2013-02-24  202208011
+1251485          Федосов Николай Сергеевич   72  1945-05-17  201706012
+negative points: 0
+points == 0 but counted > 0: 390
+================================================================================ 
+7. duplicate players within a single rating snapshot
+ ================================================================================
+Traceback (most recent call last):
+  File "<stdin>", line 17, in <module>
+  File "C:\Users\Acer\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\core\groupby\groupby.py", line 2919, in size
+    result = self._grouper.size()
+  File "C:\Users\Acer\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\core\groupby\ops.py", line 720, in size
+    ids = self.ids
+          ^^^^^^^^
+  File "C:\Users\Acer\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\core\groupby\ops.py", line 774, in ids
+    return self.result_index_and_ids[1]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "pandas/_libs/properties.pyx", line 36, in pandas._libs.properties.CachedProperty.__get__
+  File "C:\Users\Acer\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\core\groupby\ops.py", line 795, in result_index_and_ids
+    result_index, ids = self._ob_index_and_ids(
+                        ~~~~~~~~~~~~~~~~~~~~~~^
+        levels, self.codes, self.names, sorts
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Acer\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\core\groupby\ops.py", line 891, in _ob_index_and_ids
+    ob_ids, obs_group_ids = compress_group_index(group_index, sort=sort_in_compress)
+                            ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Acer\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\core\sorting.py", line 698, in compress_group_index
+    comp_ids, obs_group_ids = table.get_labels_groupby(group_index)
+                              ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "pandas/_libs/hashtable_class_helper.pxi", line 3224, in pandas._libs.hashtable.Int64HashTable.get_labels_groupby
+  File "pandas/_libs/hashtable_class_helper.pxi", line 662, in pandas._libs.hashtable.Int64Vector.resize
+MemoryError: cannot allocate memory for array
+================================================================================ 
+7. duplicate players within a single rating snapshot (SQL)
+ ================================================================================
+duplicate (rating_id,name,birth_date) groups: 73
+   rating_id   name  birth_date  n
+0  201912011  Р Т Т  2000-01-01  2
+1  202001011  Р Т Т  2000-01-01  2
+2  202002011  Р Т Т  2000-01-01  2
+3  202003011  Р Т Т  2000-01-01  2
+4  202003231  Р Т Т  2000-01-01  2
+5  202011011  Р Т Т  2000-01-01  2
+6  202011012  Р Т Т  2000-01-01  2
+7  202012011  Р Т Т  2000-01-01  2
+8  202012012  Р Т Т  2000-01-01  2
+9  202101011  Р Т Т  2000-01-01  2
+================================================================================ 
+8. Orphaned handbook codes referenced by tournaments
+ ================================================================================
+tour_status: distinct used=12, orphan codes (not '0', not in handbook)=[]
+tour_category: distinct used=24, orphan codes (not '0', not in handbook)=[]
+tour_rank: distinct used=4, orphan codes (not '0', not in handbook)=[]
+tour_system: distinct used=6, orphan codes (not '0', not in handbook)=[]
+tour_access: distinct used=4, orphan codes (not '0', not in handbook)=[]
+================================================================================ 
+9. Locations lat/lng emptiness
+ ================================================================================
+lat all zero/blank: 97 / 98
+lng all zero/blank: 97 / 98
+================================================================================ 
+10. 2021 rating drop investigation
+ ================================================================================
+     rating_id rank rating_date     n
+139  202011012    2  2020-11-01  4508
+138  202011011    1  2020-11-01  8832
+136  202012011    1  2020-12-01  8886
+137  202012012    2  2020-12-01  4531
+135  202101012    2  2021-01-01  4555
+134  202101011    1  2021-01-01  8980
+133  202102012    2  2021-02-01  4258
+132  202102011    1  2021-02-01  8551
+131  202103012    2  2021-03-01  4319
+130  202103011    1  2021-03-01  8768
+129  202104012    2  2021-04-01  2478
+128  202104011    1  2021-04-01  5865
+127  202105012    2  2021-05-01  2706
+126  202105011    1  2021-05-01  6236
+125  202106012    2  2021-06-01  3067
+124  202106011    1  2021-06-01  6602
+================================================================================ 
+7b. placeholder name decode + how many total rows use it
+ ================================================================================
+    name player_id rtt_number             city points
+0  Р Т Т     87478      38144         Тольятти     74
+1  Р Т Т     68018      20456  Санкт-Петербург      0
+total rows with birth_date=2000-01-01 (sentinel?): 490
+================================================================================ 
+10b. Month-over-month % change in player counts (find biggest cliffs)
+ ================================================================================
+     rating_id rank rating_date     n  pct_change
+129  202104012    2  2021-04-01  2478   -0.426256
+128  202104011    1  2021-04-01  5865   -0.331090
+133  202102012    2  2021-02-01  4258   -0.065203
+132  202102011    1  2021-02-01  8551   -0.047773
+232  201607012    2  2016-07-01  4075   -0.028837
+276  201409012    2  2014-09-01  3907   -0.027384
+324  201209011    1  2012-09-01  8180   -0.022817
+299  201309011    1  2013-09-01  8014   -0.022087
+300  201309012    2  2013-09-01  3647   -0.021465
+225  201610011    1  2016-10-01  8583   -0.021323
